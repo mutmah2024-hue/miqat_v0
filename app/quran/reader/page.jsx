@@ -1,9 +1,8 @@
-
 "use client";
 
-import {useEffect, useState} from "react";
-import {useSearchParams} from "next/navigation";
-import {onAuthStateChanged} from "firebase/auth";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
 
 import {
 	getQuranPage,
@@ -12,13 +11,11 @@ import {
 
 import {
 	saveLastQuranPage,
-	getTodayQuranProgress,
-	saveTodayQuranProgress,
 } from "../../../lib/firestore";
 
-import {auth} from "../../../lib/firebase";
+import { auth } from "../../../lib/firebase";
 
-export default function QuranReader() {
+function QuranReaderContent() {
 	const searchParams = useSearchParams();
 
 	const [user, setUser] = useState(null);
@@ -62,10 +59,6 @@ export default function QuranReader() {
 				searchParams.get("surah")
 			);
 
-			/*
-			 * If a page was supplied
-			 */
-
 			if (
 				pageParam >= 1 &&
 				pageParam <= 604
@@ -73,10 +66,6 @@ export default function QuranReader() {
 				setPageNumber(pageParam);
 				return;
 			}
-
-			/*
-			 * If a Surah was supplied
-			 */
 
 			if (
 				surahParam >= 1 &&
@@ -112,10 +101,6 @@ export default function QuranReader() {
 				}
 			}
 
-			/*
-			 * Default to first page
-			 */
-
 			setPageNumber(1);
 		}
 
@@ -138,11 +123,6 @@ export default function QuranReader() {
 					);
 
 				setPage(data);
-
-				/*
-				 * Save the user's last
-				 * reading position
-				 */
 
 				if (user) {
 					await saveLastQuranPage(
@@ -197,9 +177,6 @@ export default function QuranReader() {
 
 	/*
 	 * Touch start
-	 *
-	 * We only use horizontal
-	 * one finger swipes.
 	 */
 
 	const handleTouchStart = (event) => {
@@ -225,13 +202,6 @@ export default function QuranReader() {
 			return;
 		}
 
-		/*
-		 * Ignore multi touch.
-		 * This is important on MacBooks
-		 * because two finger gestures
-		 * should not turn the page.
-		 */
-
 		if (event.changedTouches.length !== 1) {
 			setTouchStartX(null);
 			setTouchStartY(null);
@@ -252,17 +222,9 @@ export default function QuranReader() {
 		setTouchStartX(null);
 		setTouchStartY(null);
 
-		/*
-		 * Not enough horizontal movement
-		 */
-
 		if (Math.abs(differenceX) < 60) {
 			return;
 		}
-
-		/*
-		 * Ignore vertical scrolling
-		 */
 
 		if (
 			Math.abs(differenceY) >
@@ -270,11 +232,6 @@ export default function QuranReader() {
 		) {
 			return;
 		}
-
-		/*
-		 * Swipe left → next page
-		 * Swipe right → previous page
-		 */
 
 		if (differenceX < 0) {
 			goToNextPage();
@@ -401,8 +358,6 @@ export default function QuranReader() {
 						className="w-full max-w-4xl bg-[#faf7ef] px-6 py-10 shadow-[0_2px_20px_rgba(80,60,40,0.05)] sm:px-12 sm:py-14 lg:px-20 lg:py-16"
 					>
 
-						{/* Page number */}
-
 						<div className="text-center">
 
 							<p className="text-xs text-[#9b8b7a]">
@@ -411,8 +366,6 @@ export default function QuranReader() {
 
 						</div>
 
-
-						{/* Qur'an text */}
 
 						<div className="mt-8">
 
@@ -455,8 +408,6 @@ export default function QuranReader() {
 
 					<div className="flex items-center justify-center gap-3">
 
-						{/* Previous */}
-
 						<button
 							type="button"
 							onClick={
@@ -470,8 +421,6 @@ export default function QuranReader() {
 							Previous
 						</button>
 
-
-						{/* Text size */}
 
 						<div className="flex items-center gap-1 rounded-xl border border-[#d8cbbb] px-2 py-1">
 
@@ -504,8 +453,6 @@ export default function QuranReader() {
 						</div>
 
 
-						{/* Next */}
-
 						<button
 							type="button"
 							onClick={
@@ -534,3 +481,24 @@ export default function QuranReader() {
 	);
 }
 
+export default function QuranReader() {
+	return (
+		<Suspense
+			fallback={
+				<main className="flex min-h-screen items-center justify-center bg-[#f7f3ea]">
+					<div className="flex flex-col items-center gap-3">
+
+						<div className="h-8 w-8 animate-spin rounded-full border-4 border-[#d9cdbb] border-t-[#70563f]" />
+
+						<p className="text-sm text-[#70563f]">
+							Loading Qur'an...
+						</p>
+
+					</div>
+				</main>
+			}
+		>
+			<QuranReaderContent />
+		</Suspense>
+	);
+}
