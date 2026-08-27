@@ -21,4 +21,5 @@
     "eslint-config-next": "16.3.2",
     "tailwindcss": "^4"
   }
+  
 }

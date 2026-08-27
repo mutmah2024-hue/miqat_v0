@@ -68,9 +68,7 @@ export default function Reflection() {
 					<div className="flex min-h-screen items-center justify-center px-6 py-10">
 						<div className="w-full max-w-lg text-center">
 
-							<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-soft text-2xl text-primary">
-								✦
-							</div>
+							
 
 							<p className="mt-8 text-xs font-medium uppercase tracking-[0.2em] text-muted">
 								REFLECTION

@@ -1,9 +1,11 @@
+import ThemeToggle from "./components/ThemeToggle";
+
 export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground">
       
-      <header className="border-b border-border">
-        <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-10">
+      <header className="border-b border-border bg-surface">
+        <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between  px-6 lg:px-10">
           <a
             href="/"
             className="text-sm font-medium tracking-[0.35em] text-primary"
@@ -40,7 +42,7 @@ export default function Home() {
               Get started
             </a>
           </div>
-
+    <ThemeToggle/>
           <a
             href="/signinup"
             className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-background md:hidden"
@@ -355,7 +357,7 @@ export default function Home() {
           </p>
 
           <a
-            href="/signup"
+            href="./signinup"
             className="mt-9 inline-flex h-12 items-center justify-center rounded-xl bg-primary px-8 text-sm font-medium text-background transition-opacity hover:opacity-90"
           >
             Create your account
@@ -427,7 +429,7 @@ function Point({ title, description }) {
         <h3 className="text-sm font-medium">{title}</h3>
 
         <p className="mt-1 text-sm leading-6 text-muted">
-          {description}
+          {description} <br/> 2026 . All Right Reserved
         </p>
       </div>
     </div>

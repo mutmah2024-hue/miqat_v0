@@ -11,6 +11,7 @@ import {
 } from "firebase/auth";
 
 import { auth } from "../../lib/firebase";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function Signinup() {
   const router = useRouter();
@@ -137,7 +138,7 @@ export default function Signinup() {
 
         {/* Left side */}
         <section className="relative hidden overflow-hidden bg-primary lg:flex">
-
+<ThemeToggle/>
           <div className="relative z-10 flex w-full flex-col justify-between p-12 xl:p-16">
 
             {/* Logo */}

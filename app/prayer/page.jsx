@@ -1,3 +1,4 @@
+
 "use client";
 
 import Sidebar from "../components/Sidebar";
@@ -8,6 +9,11 @@ import {onAuthStateChanged} from "firebase/auth";
 
 import {auth} from "../../lib/firebase";
 import {getPrayerTimes} from "../../lib/aladhan";
+
+import {
+	getTodayPrayerProgress,
+	saveTodayPrayerProgress,
+} from "../../lib/firestore";
 
 const prayerNames = [
 	{
@@ -135,6 +141,16 @@ export default function Prayer() {
 
 	const [error, setError] = useState("");
 
+	const [prayerProgress, setPrayerProgress] = useState({
+		Fajr: false,
+		Dhuhr: false,
+		Asr: false,
+		Maghrib: false,
+		Isha: false,
+	});
+
+	const [progressLoading, setProgressLoading] = useState(true);
+
 	useEffect(() => {
 		const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
 			setUser(currentUser);
@@ -143,6 +159,36 @@ export default function Prayer() {
 
 		return () => unsubscribe();
 	}, []);
+
+	/*
+	 * Load today's Salah progress
+	 */
+
+	useEffect(() => {
+		if (!user) return;
+
+		async function loadPrayerProgress() {
+			try {
+				const progress =
+					await getTodayPrayerProgress(user.uid);
+
+				setPrayerProgress(progress);
+			} catch (error) {
+				console.error(
+					"Could not load prayer progress:",
+					error
+				);
+			} finally {
+				setProgressLoading(false);
+			}
+		}
+
+		loadPrayerProgress();
+	}, [user]);
+
+	/*
+	 * Update countdown
+	 */
 
 	useEffect(() => {
 		if (!prayerData?.timings) return;
@@ -155,23 +201,38 @@ export default function Prayer() {
 				return;
 			}
 
-			setCountdown(getCountdown(next.time, next.isTomorrow));
+			setCountdown(
+				getCountdown(
+					next.time,
+					next.isTomorrow
+				)
+			);
 		};
 
 		updateCountdown();
 
-		const interval = setInterval(updateCountdown, 1000);
+		const interval = setInterval(
+			updateCountdown,
+			1000
+		);
 
 		return () => clearInterval(interval);
 	}, [prayerData]);
 
+	/*
+	 * Load saved location
+	 */
+
 	useEffect(() => {
 		if (!user) return;
 
-		const savedLocation = localStorage.getItem("miqat_location");
+		const savedLocation =
+			localStorage.getItem("miqat_location");
 
 		if (!savedLocation) {
-			setError("No location has been selected yet.");
+			setError(
+				"No location has been selected yet."
+			);
 
 			setPrayerLoading(false);
 
@@ -179,18 +240,26 @@ export default function Prayer() {
 		}
 
 		try {
-			const location = JSON.parse(savedLocation);
+			const location =
+				JSON.parse(savedLocation);
 
-			setSelectedLocation(`${location.city}, ${location.state}`);
+			setSelectedLocation(
+				`${location.city}, ${location.state}`
+			);
 
-			getPrayerTimes(location.latitude, location.longitude)
+			getPrayerTimes(
+				location.latitude,
+				location.longitude
+			)
 				.then((data) => {
 					setPrayerData(data);
 				})
 				.catch((error) => {
 					console.error(error);
 
-					setError("We couldn't load your prayer times.");
+					setError(
+						"We couldn't load your prayer times."
+					);
 				})
 				.finally(() => {
 					setPrayerLoading(false);
@@ -198,11 +267,47 @@ export default function Prayer() {
 		} catch (error) {
 			console.error(error);
 
-			setError("We couldn't read your saved location.");
+			setError(
+				"We couldn't read your saved location."
+			);
 
 			setPrayerLoading(false);
 		}
 	}, [user]);
+
+	/*
+	 * Toggle Salah completion
+	 */
+
+	const togglePrayer = async (prayer) => {
+		if (!user) return;
+
+		const newValue =
+			!prayerProgress[prayer];
+
+		setPrayerProgress((previous) => ({
+			...previous,
+			[prayer]: newValue,
+		}));
+
+		try {
+			await saveTodayPrayerProgress(
+				user.uid,
+				prayer,
+				newValue
+			);
+		} catch (error) {
+			console.error(
+				"Could not save prayer progress:",
+				error
+			);
+
+			setPrayerProgress((previous) => ({
+				...previous,
+				[prayer]: !newValue,
+			}));
+		}
+	};
 
 	if (loading) {
 		return (
@@ -210,7 +315,9 @@ export default function Prayer() {
 				<div className="flex flex-col items-center gap-3">
 					<div className="h-8 w-8 animate-spin rounded-full border-4 border-soft border-t-primary" />
 
-					<p className="text-sm text-muted">Loading...</p>
+					<p className="text-sm text-muted">
+						Loading...
+					</p>
 				</div>
 			</main>
 		);
@@ -235,7 +342,14 @@ export default function Prayer() {
 		);
 	}
 
-	const nextPrayer = getNextPrayer(prayerData?.timings);
+	const nextPrayer = getNextPrayer(
+		prayerData?.timings
+	);
+
+	const completedPrayerCount =
+		Object.values(prayerProgress).filter(
+			Boolean
+		).length;
 
 	return (
 		<main className="min-h-screen bg-background text-foreground">
@@ -246,6 +360,7 @@ export default function Prayer() {
 
 				<div className="min-w-0 flex-1">
 					<div className="mx-auto max-w-5xl px-6 py-10 sm:px-8 lg:py-14">
+
 						{/* Header */}
 
 						<section>
@@ -263,7 +378,8 @@ export default function Prayer() {
 
 							{prayerData?.date?.hijri && (
 								<p className="mt-3 text-sm text-muted">
-									{prayerData.date.hijri.day} {prayerData.date.hijri.month.en}{" "}
+									{prayerData.date.hijri.day}{" "}
+									{prayerData.date.hijri.month.en}{" "}
 									{prayerData.date.hijri.year} AH
 								</p>
 							)}
@@ -316,21 +432,29 @@ export default function Prayer() {
 									<div className="sm:text-right">
 										{countdown && (
 											<p className="text-4xl font-semibold tabular-nums tracking-tight">
-												{countdown.hours}:{countdown.minutes}:
+												{countdown.hours}:
+												{countdown.minutes}:
 												{countdown.seconds}
 											</p>
 										)}
 
-										<p className="mt-2 text-sm text-primary-light">remaining</p>
+										<p className="mt-2 text-sm text-primary-light">
+											remaining
+										</p>
 
 										<p className="mt-1 text-xs text-primary-light">
-											{convertTo12Hour(nextPrayer.time)} · {selectedLocation}
+											{convertTo12Hour(
+												nextPrayer.time
+											)}{" "}
+											· {selectedLocation}
 										</p>
 									</div>
 								</div>
 							) : (
 								<div className="mt-6">
-									<h2 className="text-3xl font-semibold">Fajr</h2>
+									<h2 className="text-3xl font-semibold">
+										Fajr
+									</h2>
 
 									<p className="mt-2 text-sm text-primary-light">
 										Tomorrow's first prayer
@@ -344,56 +468,130 @@ export default function Prayer() {
 						{prayerData?.timings && (
 							<section className="mt-8 rounded-3xl border border-border bg-surface p-7 sm:p-8">
 								<div>
-									<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
-										TODAY
-									</p>
+									<div className="flex items-start justify-between gap-4">
+										<div>
+											<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
+												TODAY
+											</p>
 
-									<h2 className="mt-3 text-xl font-semibold text-primary">
-										All prayer times
-									</h2>
+											<h2 className="mt-3 text-xl font-semibold text-primary">
+												All prayer times
+											</h2>
 
-									<p className="mt-2 text-sm text-muted">{selectedLocation}</p>
+											<p className="mt-2 text-sm text-muted">
+												{selectedLocation}
+											</p>
+										</div>
+
+										<div className="rounded-xl bg-soft px-3 py-2 text-center">
+											<p className="text-xs text-muted">
+												Completed
+											</p>
+
+											<p className="mt-1 text-sm font-semibold text-primary">
+												{completedPrayerCount} / 5
+											</p>
+										</div>
+									</div>
 								</div>
 
 								<div className="mt-7 grid gap-3">
-									{prayerNames.map((prayer) => {
-										const isNext = nextPrayer?.name === prayer.label;
+									{prayerNames.map(
+										(prayer) => {
+											const isNext =
+												nextPrayer?.name ===
+												prayer.label;
 
-										return (
-											<div
-												key={prayer.key}
-												className={`flex items-center justify-between rounded-2xl px-5 py-4 transition-colors ${
-													isNext
-														? "bg-primary text-white"
-														: "bg-elevated text-foreground"
-												}`}
-											>
-												<div>
-													<p
-														className={`text-sm font-medium ${
-															isNext ? "text-white" : "text-foreground"
-														}`}
-													>
-														{prayer.label}
-													</p>
+											const isCompleted =
+												prayerProgress[
+													prayer.key
+												];
 
-													{isNext && (
-														<p className="mt-1 text-xs text-primary-light">
-															Next prayer
-														</p>
-													)}
-												</div>
-
-												<p
-													className={`text-lg font-semibold ${
-														isNext ? "text-white" : "text-primary"
+											return (
+												<div
+													key={prayer.key}
+													className={`flex items-center justify-between rounded-2xl px-5 py-4 transition-colors ${
+														isNext
+															? "bg-primary text-white"
+															: isCompleted
+																? "bg-soft text-foreground"
+																: "bg-elevated text-foreground"
 													}`}
 												>
-													{convertTo12Hour(prayerData.timings[prayer.key])}
-												</p>
-											</div>
-										);
-									})}
+													<div>
+														<p
+															className={`text-sm font-medium ${
+																isNext
+																	? "text-white"
+																	: "text-foreground"
+															}`}
+														>
+															{
+																prayer.label
+															}
+														</p>
+
+														{isNext && (
+															<p className="mt-1 text-xs text-primary-light">
+																Next prayer
+															</p>
+														)}
+
+														{isCompleted &&
+															!isNext && (
+																<p className="mt-1 text-xs text-muted">
+																	Completed
+																</p>
+															)}
+													</div>
+
+													<div className="flex items-center gap-4">
+														<p
+															className={`text-lg font-semibold ${
+																isNext
+																	? "text-white"
+																	: "text-primary"
+															}`}
+														>
+															{convertTo12Hour(
+																prayerData
+																	.timings[
+																	prayer.key
+																]
+															)}
+														</p>
+
+														<button
+															type="button"
+															onClick={() =>
+																togglePrayer(
+																	prayer.key
+																)
+															}
+															disabled={
+																progressLoading
+															}
+															aria-label={
+																isCompleted
+																	? `Mark ${prayer.label} as incomplete`
+																	: `Mark ${prayer.label} as completed`
+															}
+															className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold transition-all ${
+																isCompleted
+																	? "border-primary bg-primary text-white"
+																	: isNext
+																		? "border-white/60 text-white hover:border-white"
+																		: "border-border text-transparent hover:border-primary"
+															}`}
+														>
+															{isCompleted &&
+																"✓"}
+														</button>
+													</div>
+												</div>
+											);
+										}
+									)}
 								</div>
 							</section>
 						)}
@@ -407,7 +605,8 @@ export default function Prayer() {
 								</p>
 
 								<h2 className="mt-4 text-xl font-semibold text-primary">
-									{selectedLocation || "Location not selected"}
+									{selectedLocation ||
+										"Location not selected"}
 								</h2>
 
 								<p className="mt-3 text-sm leading-7 text-muted">
@@ -432,14 +631,15 @@ export default function Prayer() {
 								</h2>
 
 								<p className="mt-3 text-sm leading-7 text-muted">
-									Let each prayer create a pause in your day and bring your
-									attention back to what matters.
+									Let each prayer create a pause in your day and bring your attention back to what matters.
 								</p>
 							</article>
 						</section>
+
 					</div>
 				</div>
 			</div>
 		</main>
 	);
 }
+

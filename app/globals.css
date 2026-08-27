@@ -15,12 +15,12 @@
 }
 
 .dark {
-  --background: #0B1712;
+  --background: #183820;
   --surface: #11231B;
   --elevated: #183126;
 
-  --primary: #09432E;
-  --primary-light: #8FC5A8;
+  --primary: #91CC3E;
+  --primary-light: #215542;
   --soft: #1B3A2B;
 
   --foreground: #E8F1EC;
