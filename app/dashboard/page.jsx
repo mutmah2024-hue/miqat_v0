@@ -609,7 +609,7 @@ export default function Dashboard() {
 					</p>
 
 					<a
-						href="/Signinup"
+						href="../signinup"
 						className="mt-5 inline-flex rounded-xl bg-primary px-6 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
 					>
 						Sign in

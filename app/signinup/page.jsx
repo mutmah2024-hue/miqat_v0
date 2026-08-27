@@ -98,7 +98,7 @@ export default function Signinup() {
       } else if (error.code === "auth/invalid-credential") {
         setError("Your email or password is incorrect.");
       } else {
-        setError(error.message);
+        setError("Check your internet connection.");
       }
     } finally {
       setLoading(false);
@@ -117,7 +117,7 @@ export default function Signinup() {
       await sendPasswordResetEmail(auth, email);
 
       setError(
-        "Password reset email sent. Check your inbox."
+        "Password reset email sent. Check your inbox or spam."
       );
     } catch (error) {
       console.error(error);

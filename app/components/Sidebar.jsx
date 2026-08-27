@@ -199,7 +199,7 @@ export default function Sidebar({user}) {
 					</Link>
 
 					<Link
-						href="/tasbih"
+						href="../tasbih"
 						onClick={() => setMobileMenuOpen(false)}
 						className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-primary hover:bg-elevated"
 					>
