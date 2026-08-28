@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Mīqāt",
+  title: "Wasl",
   description: "Your Muslim companion.",
   manifest: "/manifest.webmanifest",
   themeColor: "#0F4D3A",

@@ -10,7 +10,7 @@ export default function Home() {
             href="/"
             className="text-sm font-medium tracking-[0.35em] text-primary"
           >
-            MĪQĀT
+            Wasl
           </a>
 
           <div className="hidden items-center gap-8 md:flex">
@@ -81,7 +81,7 @@ export default function Home() {
             </h1>
 
             <p className="mt-7 max-w-lg text-base leading-8 text-muted sm:text-lg">
-              Mīqāt brings prayer, Qur'an, focus, and reflection together in
+              Wasl brings prayer, Qur'an, focus, and reflection together in
               one calm space, helping you make better use of your time and
               attention.
             </p>
@@ -98,7 +98,7 @@ export default function Home() {
                 href="#features"
                 className="inline-flex h-12 items-center justify-center rounded-xl border border-border px-7 text-sm font-medium text-foreground transition-colors hover:bg-surface"
               >
-                Explore Mīqāt
+                Explore Wasl
               </a>
             </div>
           </div>
@@ -200,7 +200,7 @@ export default function Home() {
             </h2>
 
             <p className="mt-6 text-base leading-8 text-muted">
-              Mīqāt is designed around the parts of your day that deserve
+              Wasl is designed around the parts of your day that deserve
               more attention, not more distraction.
             </p>
           </div>
@@ -295,7 +295,7 @@ export default function Home() {
 
             <p className="mt-6 text-base leading-8 text-muted">
               Instead of jumping between different apps and reminders,
-              Mīqāt gives you one place to see what matters today.
+              Wasl gives you one place to see what matters today.
             </p>
 
             <div className="mt-8 space-y-5">
@@ -325,7 +325,7 @@ export default function Home() {
       >
         <div className="mx-auto max-w-4xl px-6 py-28 text-center lg:py-36">
           <p className="text-sm font-medium tracking-[0.25em] text-primary">
-            WHY MĪQĀT
+            WHY Wasl
           </p>
 
           <h2 className="mt-6 text-4xl font-semibold leading-tight text-primary tracking-tight sm:text-5xl lg:text-6xl">
@@ -333,7 +333,7 @@ export default function Home() {
           </h2>
 
           <p className="mx-auto mt-7 max-w-2xl text-base leading-8 text-muted sm:text-lg">
-            Mīqāt is built around a simple idea: technology can either pull
+            Wasl is built around a simple idea: technology can either pull
             your attention in a hundred directions or help you live with
             intention. We choose the second.
           </p>
@@ -368,7 +368,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between lg:px-10">
-          <p className="tracking-[0.25em] text-primary">MĪQĀT</p>
+          <p className="tracking-[0.25em] text-primary">Wasl</p>
 
           <p>A calm space for prayer, Qur'an, focus and reflection.</p>
         </div>

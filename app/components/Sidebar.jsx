@@ -72,7 +72,7 @@ export default function Sidebar({user}) {
 						href="/dashboard"
 						className="text-sm font-semibold tracking-[0.35em] text-primary"
 					>
-						MĪQĀT
+						Wasl
 					</Link>
 				</div>
 

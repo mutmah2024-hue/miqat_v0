@@ -605,7 +605,7 @@ export default function Dashboard() {
 			<main className="flex min-h-screen items-center justify-center bg-background px-6">
 				<div className="text-center">
 					<p className="text-sm text-muted">
-						You need to sign in to access Mīqāt.
+						You need to sign in to access Wasl.
 					</p>
 
 					<a
@@ -629,9 +629,9 @@ export default function Dashboard() {
 	return (
 		<main className="min-h-screen bg-background text-foreground">
 			<div className="flex min-h-screen">
-        <ThemeToggle/>
+        
 				<Sidebar user={user} />
-
+		<ThemeToggle/>
 				<div className="min-w-0 flex-1">
 					<div className="mx-auto max-w-7xl px-6 py-10 lg:px-10 lg:py-14">
 						{/* Greeting */}
@@ -642,7 +642,7 @@ export default function Dashboard() {
 							</p>
 
 							<h1 className="mt-3 text-3xl font-semibold tracking-tight text-primary sm:text-4xl">
-								Assalamu alaikum, {firstName}.
+								Assalāmu alaykum, {firstName}.
 							</h1>
 
 							<p className="mt-3 max-w-xl text-sm leading-7 text-foreground">
