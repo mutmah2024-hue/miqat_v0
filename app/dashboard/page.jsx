@@ -631,7 +631,7 @@ export default function Dashboard() {
 			<div className="flex min-h-screen">
         
 				<Sidebar user={user} />
-		<ThemeToggle/>
+		{/* <ThemeToggle/> */}
 				<div className="min-w-0 flex-1">
 					<div className="mx-auto max-w-7xl px-6 py-10 lg:px-10 lg:py-14">
 						{/* Greeting */}

@@ -62,7 +62,7 @@ export default function Reflection() {
 			<div className="flex min-h-screen">
 				<Sidebar user={user} />
 
-				<ThemeToggle />
+				{/* <ThemeToggle /> */}
 
 				<div className="min-w-0 flex-1">
 					<div className="flex min-h-screen items-center justify-center px-6 py-10">

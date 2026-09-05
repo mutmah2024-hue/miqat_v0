@@ -398,7 +398,7 @@ export default function Focus() {
 
 					<header className="border-b border-border bg-surface">
 						<div className="flex gap-0">
-							<ThemeToggle />
+							{/* <ThemeToggle /> */}
 							<div className="mx-auto flex h-20 max-w-7xl items-center px-6 lg:px-10">
 								<div>
 									<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
