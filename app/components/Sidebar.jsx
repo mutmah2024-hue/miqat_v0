@@ -8,29 +8,34 @@ import {usePathname} from "next/navigation";
 const mainNavigation = [
 	{
 		name: "Dashboard",
-		href: "/dashboard",
+		href: "../dashboard",
 		icon: "⌂",
 	},
 	{
 		name: "Prayer",
-		href: "/prayer",
+		href: "../prayer",
 		icon: "🕘",
 	},
 	{
 		name: "Qur'an",
-		href: "/quran",
+		href: "../quran",
 		icon: "📖",
 	},
 	{
 		name: "Focus",
-		href: "/focus",
+		href: "../focus",
 		icon: "🔒",
 	},
 	{
 		name: "Reflection",
-		href: "/reflection",
+		href: "../reflection",
 		icon: "✍🏻",
 	},
+	{
+		name: "Study",
+		href: "../study",
+		icon: "📚"
+	}
 ];
 
 const toolsNavigation = [
@@ -207,6 +212,14 @@ export default function Sidebar({user}) {
 						<span>Tasbih</span>
 					</Link>
 
+					<Link
+						href="../study"
+						onClick={() => setMobileMenuOpen(false)}
+						className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-primary hover:bg-elevated"
+					>
+						<span>📚</span>
+						<span>Study</span>
+					</Link>
 					<div className="my-2 border-t border-border" />
 
 					<Link

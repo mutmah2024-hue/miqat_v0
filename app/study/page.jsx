@@ -8,7 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 
 import { auth } from "../../lib/firebase";
 
-export default function Tasbīh() {
+export default function Study() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -72,7 +72,7 @@ i
                             
 
                             <p className="mt-8 text-xs font-medium uppercase tracking-[0.2em] text-muted">
-                                Tasbīh
+                                Study
                             </p>
 
                             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-primary sm:text-4xl">
@@ -80,7 +80,7 @@ i
                             </h1>
 
                             <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-muted">
-                                Tasbīh is on its way.
+                                Study is on its way.
                             </p>
 
                             <div className="mt-8 inline-flex rounded-xl bg-soft px-5 py-3 text-sm font-medium text-primary">

@@ -558,7 +558,6 @@ export default function Calendar() {
 			<div className="flex min-h-screen">
 				<Sidebar user={user} />
 
-				<ThemeToggle />
 
 				<div className="min-w-0 flex-1">
 					<div className="mx-auto max-w-5xl px-6 py-10 sm:px-8 lg:py-14">
