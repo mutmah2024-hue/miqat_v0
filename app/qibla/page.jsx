@@ -8,7 +8,9 @@ const LATITUDE_KEY = "miqat_qibla_latitude";
 const LONGITUDE_KEY = "miqat_qibla_longitude";
 
 export default function Qibla() {
-	const [qiblaDirection, setQiblaDirection] = useState(null);
+	const [qiblaDirection, setQiblaDirection] =
+		useState(null);
+
 	const [heading, setHeading] = useState(0);
 
 	const [latitude, setLatitude] = useState("");
@@ -24,10 +26,10 @@ export default function Qibla() {
 	const [compassSupported, setCompassSupported] =
 		useState(true);
 
-	// --------------------------------------------------
-	// GET QIBLA FROM ALADHAN
-	// --------------------------------------------------
+	const [compassPermissionNeeded, setCompassPermissionNeeded] =
+		useState(false);
 
+	// GET QIBLA FROM ALADHAN
 	const getQiblaDirection = async (lat, lon) => {
 		try {
 			const response = await fetch(
@@ -41,7 +43,9 @@ export default function Qibla() {
 			const result = await response.json();
 
 			if (result.code !== 200 || !result.data) {
-				throw new Error("Unable to get Qibla direction.");
+				throw new Error(
+					"Unable to get Qibla direction."
+				);
 			}
 
 			setQiblaDirection(result.data.direction);
@@ -58,10 +62,7 @@ export default function Qibla() {
 		}
 	};
 
-	// --------------------------------------------------
 	// AUTOMATIC LOCATION
-	// --------------------------------------------------
-
 	const getCurrentLocation = () => {
 		setLoading(true);
 		setError(null);
@@ -85,10 +86,8 @@ export default function Qibla() {
 				setLatitude(lat.toString());
 				setLongitude(lon.toString());
 
-				const success = await getQiblaDirection(
-					lat,
-					lon
-				);
+				const success =
+					await getQiblaDirection(lat, lon);
 
 				if (success) {
 					setLocationMode("automatic");
@@ -132,10 +131,7 @@ export default function Qibla() {
 		);
 	};
 
-	// --------------------------------------------------
 	// MANUAL LOCATION
-	// --------------------------------------------------
-
 	const useManualLocation = async () => {
 		setError(null);
 
@@ -167,11 +163,10 @@ export default function Qibla() {
 
 		setLoading(true);
 
-		const success = await getQiblaDirection(lat, lon);
+		const success =
+			await getQiblaDirection(lat, lon);
 
 		if (success) {
-			// Save only after the coordinates
-			// successfully return a Qibla direction.
 			localStorage.setItem(
 				LATITUDE_KEY,
 				latitude
@@ -190,10 +185,7 @@ export default function Qibla() {
 		setLoading(false);
 	};
 
-	// --------------------------------------------------
 	// LOAD SAVED LOCATION OR GET CURRENT LOCATION
-	// --------------------------------------------------
-
 	useEffect(() => {
 		const savedLatitude =
 			localStorage.getItem(LATITUDE_KEY);
@@ -206,10 +198,11 @@ export default function Qibla() {
 			setLongitude(savedLongitude);
 
 			const loadSavedLocation = async () => {
-				const success = await getQiblaDirection(
-					Number(savedLatitude),
-					Number(savedLongitude)
-				);
+				const success =
+					await getQiblaDirection(
+						Number(savedLatitude),
+						Number(savedLongitude)
+					);
 
 				if (success) {
 					setLocationMode("manual");
@@ -228,47 +221,147 @@ export default function Qibla() {
 		}
 	}, []);
 
-	// --------------------------------------------------
-	// DEVICE COMPASS
-	// --------------------------------------------------
-
-	useEffect(() => {
-		const handleOrientation = (event) => {
-			let newHeading = null;
-
-			// iPhone / iPad
+	// START DEVICE COMPASS
+	const startCompass = async () => {
+		try {
 			if (
-				typeof event.webkitCompassHeading ===
-				"number"
+				typeof DeviceOrientationEvent !==
+					"undefined" &&
+				typeof DeviceOrientationEvent.requestPermission ===
+					"function"
 			) {
-				newHeading = event.webkitCompassHeading;
+				const permission =
+					await DeviceOrientationEvent.requestPermission(
+						true
+					);
+
+				if (permission !== "granted") {
+					setCompassSupported(false);
+					setCompassPermissionNeeded(false);
+					return;
+				}
 			}
 
-			// Other devices
-			else if (typeof event.alpha === "number") {
-				newHeading = 360 - event.alpha;
-			}
+			setCompassPermissionNeeded(false);
+			setCompassSupported(true);
 
-			if (newHeading !== null) {
-				setHeading(
-					(newHeading + 360) % 360
-				);
-			}
-		};
-
-		if (
-			typeof window !== "undefined" &&
-			typeof DeviceOrientationEvent !==
-				"undefined"
-		) {
 			window.addEventListener(
 				"deviceorientation",
 				handleOrientation,
 				true
 			);
-		} else {
+
+			window.addEventListener(
+				"deviceorientationabsolute",
+				handleOrientation,
+				true
+			);
+		} catch (err) {
+			console.error(
+				"Compass permission error:",
+				err
+			);
+
 			setCompassSupported(false);
+			setCompassPermissionNeeded(false);
 		}
+	};
+
+	// NORMALISE DEVICE HEADING
+	const handleOrientation = (event) => {
+		let newHeading = null;
+
+		// iOS Safari provides a direct compass heading.
+		if (
+			typeof event.webkitCompassHeading ===
+				"number" &&
+			!Number.isNaN(
+				event.webkitCompassHeading
+			)
+		) {
+			newHeading =
+				event.webkitCompassHeading;
+		}
+
+		// Other browsers can provide absolute alpha.
+		else if (
+			event.absolute &&
+			typeof event.alpha === "number"
+		) {
+			newHeading =
+				360 - event.alpha;
+		}
+
+		// Fallback for browsers that only provide alpha.
+		else if (
+			typeof event.alpha === "number"
+		) {
+			newHeading =
+				360 - event.alpha;
+		}
+
+		if (newHeading === null) {
+			return;
+		}
+
+		// Account for screen orientation.
+		let screenAngle = 0;
+
+		if (
+			typeof window !== "undefined" &&
+			window.screen?.orientation
+		) {
+			screenAngle =
+				window.screen.orientation.angle ||
+				0;
+		} else if (
+			typeof window !== "undefined" &&
+			typeof window.orientation === "number"
+		) {
+			screenAngle = window.orientation;
+		}
+
+		newHeading =
+			newHeading + screenAngle;
+
+		newHeading =
+			((newHeading % 360) + 360) % 360;
+
+		setHeading(newHeading);
+	};
+
+	// DEVICE COMPASS
+	useEffect(() => {
+		if (
+			typeof window === "undefined" ||
+			typeof DeviceOrientationEvent ===
+				"undefined"
+		) {
+			setCompassSupported(false);
+			return;
+		}
+
+		// iOS requires permission through a user gesture.
+		if (
+			typeof DeviceOrientationEvent.requestPermission ===
+			"function"
+		) {
+			setCompassPermissionNeeded(true);
+			setCompassSupported(true);
+			return;
+		}
+
+		window.addEventListener(
+			"deviceorientation",
+			handleOrientation,
+			true
+		);
+
+		window.addEventListener(
+			"deviceorientationabsolute",
+			handleOrientation,
+			true
+		);
 
 		return () => {
 			window.removeEventListener(
@@ -276,12 +369,14 @@ export default function Qibla() {
 				handleOrientation,
 				true
 			);
+
+			window.removeEventListener(
+				"deviceorientationabsolute",
+				handleOrientation,
+				true
+			);
 		};
 	}, []);
-
-	// --------------------------------------------------
-	// CARDINAL DIRECTION
-	// --------------------------------------------------
 
 	const getCardinalDirection = (degrees) => {
 		const directions = [
@@ -301,10 +396,6 @@ export default function Qibla() {
 		return directions[index];
 	};
 
-	// --------------------------------------------------
-	// QIBLA DIFFERENCE
-	// --------------------------------------------------
-
 	const getDifference = () => {
 		if (qiblaDirection === null) {
 			return 0;
@@ -321,16 +412,20 @@ export default function Qibla() {
 
 	const isAligned = difference <= 5;
 
+	/*
+	 * The compass dial rotates opposite to the
+	 * direction the phone is facing.
+	 */
 	const compassRotation = -heading;
 
-	const qiblaOnDial =
+	/*
+	 * Qibla is positioned using its absolute
+	 * bearing from true north.
+	 */
+	const qiblaRotation =
 		qiblaDirection !== null
 			? qiblaDirection
 			: 0;
-
-	// --------------------------------------------------
-	// RENDER
-	// --------------------------------------------------
 
 	return (
 		<div className="min-h-screen bg-background text-primary">
@@ -339,7 +434,6 @@ export default function Qibla() {
 			<main className="ml-0 min-h-screen px-5 py-4 md:ml-64 md:px-8 md:py-5">
 				<div className="mx-auto max-w-5xl">
 					{/* HEADER */}
-
 					<div className="flex items-start justify-between">
 						<div>
 							<p className="text-sm text-muted">
@@ -360,7 +454,6 @@ export default function Qibla() {
 					</div>
 
 					{/* ERROR */}
-
 					{error && (
 						<div className="mt-5 rounded-2xl border border-border bg-surface p-5">
 							<p className="text-sm text-primary">
@@ -379,7 +472,6 @@ export default function Qibla() {
 					)}
 
 					{/* MANUAL LOCATION */}
-
 					{showManualLocation && (
 						<div className="mt-5 rounded-2xl border border-border bg-surface p-5">
 							<h2 className="text-lg font-semibold">
@@ -407,8 +499,7 @@ export default function Qibla() {
 										}
 										onChange={(e) =>
 											setLatitude(
-												e
-													.target
+												e.target
 													.value
 											)
 										}
@@ -430,8 +521,7 @@ export default function Qibla() {
 										}
 										onChange={(e) =>
 											setLongitude(
-												e
-													.target
+												e.target
 													.value
 											)
 										}
@@ -455,10 +545,9 @@ export default function Qibla() {
 					)}
 
 					{/* LOADING */}
-
 					{loading && (
 						<div className="mt-12 flex flex-col items-center justify-center text-center">
-							<div className="h-9 w-9 animate-spin rounded-full border-2 border-border border-t-primary" />
+							<div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
 
 							<p className="mt-4 text-sm text-muted">
 								Determining your location...
@@ -466,199 +555,186 @@ export default function Qibla() {
 						</div>
 					)}
 
-					{/* COMPASS */}
-
+					{/* QIBLA */}
 					{!loading &&
 						qiblaDirection !== null && (
 							<div className="mt-6">
 								<div className="grid gap-6 lg:grid-cols-[1fr_280px]">
 									{/* COMPASS */}
-
-									<div className="rounded-3xl border border-border bg-surface p-5 sm:p-8">
+									<div className="rounded-3xl border border-border bg-surface p-6 sm:p-8">
 										<div className="flex flex-col items-center">
-											<div className="relative aspect-square w-full max-w-[440px]">
-												{/* TOP INDICATOR */}
-
-												<div className="absolute left-1/2 top-0 z-30 -translate-x-1/2">
-													<div className="h-0 w-0 border-l-[9px] border-r-[9px] border-t-[18px] border-l-transparent border-r-transparent border-t-primary" />
-												</div>
-
-												{/* DIAL */}
-
-												<div
-													className="absolute inset-0 rounded-full border-2 border-border bg-background transition-transform duration-300 ease-out"
-													style={{
-														transform: `rotate(${compassRotation}deg)`,
-													}}
-												>
-													{/* TICKS */}
-
-													{Array.from(
-														{
-															length: 72,
-														},
-														(
-															_,
-															index
-														) => {
-															const angle =
-																index *
-																5;
-
-															const isMajor =
-																angle %
-																	45 ===
-																0;
-
-															return (
-																<div
-																	key={
-																		angle
-																	}
-																	className="absolute left-1/2 top-1/2 origin-bottom"
-																	style={{
-																		height:
-																			isMajor
-																				? "44%"
-																				: "46%",
-																		transform: `translateX(-50%) rotate(${angle}deg)`,
-																	}}
-																>
-																	<div
-																		className={
-																			isMajor
-																				? "mx-auto h-5 w-0.5 bg-primary"
-																				: "mx-auto h-2.5 w-px bg-border"
-																		}
-																	/>
-																</div>
-															);
-														}
-													)}
-
-													{/* NORTH */}
-
-													<div className="absolute left-1/2 top-[7%] -translate-x-1/2 text-lg font-semibold">
-														N
+											<div className="relative w-full max-w-[380px]">
+												<div className="relative aspect-square">
+													{/* Fixed top indicator */}
+													<div className="absolute left-1/2 top-0 z-20 -translate-x-1/2">
+														<div className="h-0 w-0 border-l-[7px] border-r-[7px] border-t-[13px] border-l-transparent border-r-transparent border-t-primary" />
 													</div>
 
-													{/* EAST */}
-
-													<div className="absolute right-[8%] top-1/2 -translate-y-1/2 text-lg font-semibold">
-														E
-													</div>
-
-													{/* SOUTH */}
-
-													<div className="absolute bottom-[7%] left-1/2 -translate-x-1/2 text-lg font-semibold">
-														S
-													</div>
-
-													{/* WEST */}
-
-													<div className="absolute left-[8%] top-1/2 -translate-y-1/2 text-lg font-semibold">
-														W
-													</div>
-
-													{/* QIBLA MARKER */}
-
+													{/* Rotating compass */}
 													<div
-														className="absolute left-1/2 top-1/2 h-full w-full"
+														className="absolute inset-4 rounded-full border border-border bg-background transition-transform duration-200 ease-out"
 														style={{
-															transform: `translate(-50%, -50%) rotate(${qiblaOnDial}deg)`,
+															transform: `rotate(${compassRotation}deg)`,
 														}}
 													>
-														<div className="absolute left-1/2 top-[5%] -translate-x-1/2">
-															<div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white shadow-lg">
-																Q
+														{/* Cardinal directions */}
+														<div className="absolute left-1/2 top-[8%] -translate-x-1/2 text-sm font-medium">
+															N
+														</div>
+
+														<div className="absolute right-[8%] top-1/2 -translate-y-1/2 text-sm font-medium">
+															E
+														</div>
+
+														<div className="absolute bottom-[8%] left-1/2 -translate-x-1/2 text-sm font-medium">
+															S
+														</div>
+
+														<div className="absolute left-[8%] top-1/2 -translate-y-1/2 text-sm font-medium">
+															W
+														</div>
+
+														{/* Minimal tick marks */}
+														<div className="absolute left-1/2 top-[5%] h-3 w-px -translate-x-1/2 bg-border" />
+
+														<div className="absolute right-[5%] top-1/2 h-px w-3 -translate-y-1/2 bg-border" />
+
+														<div className="absolute bottom-[5%] left-1/2 h-3 w-px -translate-x-1/2 bg-border" />
+
+														<div className="absolute left-[5%] top-1/2 h-px w-3 -translate-y-1/2 bg-border" />
+
+														{/* Qibla marker */}
+														<div
+															className="absolute left-1/2 top-1/2 h-full w-full"
+															style={{
+																transform: `translate(-50%, -50%) rotate(${qiblaRotation}deg)`,
+															}}
+														>
+															<div className="absolute left-1/2 top-[8%] -translate-x-1/2">
+																<div
+																	className={`h-3.5 w-3.5 rounded-full border-2 border-background ${
+																		isAligned
+																			? "bg-primary"
+																			: "bg-primary"
+																	}`}
+																/>
 															</div>
 														</div>
-													</div>
 
-													{/* CENTER */}
-
-													<div className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-surface shadow-sm">
-														<div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
+														{/* Center */}
+														<div className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-surface">
+															<div className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
+														</div>
 													</div>
+												</div>
+
+												{/* Qibla label */}
+												<div className="mt-4 text-center">
+													<p className="text-sm text-muted">
+														Qibla
+													</p>
+
+													<p className="mt-1 text-3xl font-semibold">
+														{Math.round(
+															qiblaDirection
+														)}
+														°
+													</p>
+
+													<p className="mt-1 text-sm text-muted">
+														{
+															getCardinalDirection(
+																qiblaDirection
+															)
+														}
+													</p>
 												</div>
 											</div>
 
-											{/* HEADING */}
+											{/* CURRENT HEADING */}
+											<div className="mt-6 flex items-center gap-5 rounded-2xl border border-border bg-background px-5 py-4">
+												<div>
+													<p className="text-xs text-muted">
+														Your heading
+													</p>
 
-											<div className="mt-5 text-center">
-												<p className="text-sm text-muted">
-													Current
-													heading
-												</p>
+													<p className="mt-1 text-xl font-semibold">
+														{Math.round(
+															heading
+														)}
+														°
+													</p>
+												</div>
 
-												<p className="mt-1 text-3xl font-semibold">
-													{Math.round(
-														heading
-													)}
-													°
-												</p>
+												<div className="h-8 w-px bg-border" />
 
-												<p className="mt-1 text-sm text-muted">
-													{getCardinalDirection(
-														heading
-													)}
-												</p>
+												<div>
+													<p className="text-xs text-muted">
+														Direction
+													</p>
+
+													<p className="mt-1 text-xl font-semibold">
+														{
+															getCardinalDirection(
+																heading
+															)
+														}
+													</p>
+												</div>
 											</div>
 
-											{/* INSTRUCTION */}
-
-											<div className="mt-4 max-w-md text-center">
-												{compassSupported ? (
+											{/* COMPASS PERMISSION */}
+											{compassPermissionNeeded && (
+												<div className="mt-5 text-center">
 													<p className="text-sm leading-6 text-muted">
-														Slowly
-														rotate
-														your
-														phone
-														until
-														the
-														Qibla
-														marker
-														aligns
-														with
-														the
-														indicator
-														at
-														the
-														top.
-													</p>
-												) : (
-													<p className="text-sm leading-6 text-muted">
-														Your
-														device
-														does
-														not
-														provide
-														compass
-														orientation
-														data.
-														Open
-														Mīqāt
-														on
-														a
-														phone
-														to
-														use
-														the
-														live
+														Allow compass
+														access to use
+														the live Qibla
 														compass.
 													</p>
-												)}
-											</div>
+
+													<button
+														onClick={
+															startCompass
+														}
+														className="mt-3 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+													>
+														Enable compass
+													</button>
+												</div>
+											)}
+
+											{/* INSTRUCTIONS */}
+											{!compassPermissionNeeded &&
+												(compassSupported ? (
+													<p className="mt-5 max-w-md text-center text-sm leading-6 text-muted">
+														Hold your phone
+														flat and slowly
+														turn until the
+														Qibla marker is
+														at the top.
+													</p>
+												) : (
+													<p className="mt-5 max-w-md text-center text-sm leading-6 text-muted">
+														Your device does
+														not provide
+														compass
+														orientation
+														data. Open
+														Mīqāt on a
+														supported phone
+														to use the live
+														compass.
+													</p>
+												))}
 										</div>
 									</div>
 
 									{/* INFORMATION */}
-
 									<div className="space-y-4">
 										<div className="rounded-2xl border border-border bg-surface p-5">
 											<p className="text-sm text-muted">
-												Qibla
-												direction
+												Qibla direction
 											</p>
 
 											<p className="mt-1.5 text-3xl font-semibold">
@@ -669,16 +745,17 @@ export default function Qibla() {
 											</p>
 
 											<p className="mt-1 text-sm text-muted">
-												{getCardinalDirection(
-													qiblaDirection
-												)}
+												{
+													getCardinalDirection(
+														qiblaDirection
+													)
+												}
 											</p>
 										</div>
 
 										<div className="rounded-2xl border border-border bg-surface p-5">
 											<p className="text-sm text-muted">
-												Your
-												direction
+												You are
 											</p>
 
 											<p className="mt-1.5 text-3xl font-semibold">
@@ -689,8 +766,7 @@ export default function Qibla() {
 											</p>
 
 											<p className="mt-1 text-sm text-muted">
-												away from
-												Qibla
+												away from Qibla
 											</p>
 										</div>
 
@@ -714,7 +790,7 @@ export default function Qibla() {
 											<p className="mt-1 text-sm leading-6 text-muted">
 												{isAligned
 													? "You are facing the Qibla."
-													: "Rotate slowly until the Qibla marker reaches the indicator."}
+													: "Turn slowly until the Qibla marker reaches the indicator."}
 											</p>
 										</div>
 
@@ -735,15 +811,11 @@ export default function Qibla() {
 											<p className="mt-3 text-sm">
 												{Number(
 													latitude
-												).toFixed(
-													4
-												)}
+												).toFixed(4)}
 												°,{" "}
 												{Number(
 													longitude
-												).toFixed(
-													4
-												)}
+												).toFixed(4)}
 												°
 											</p>
 
@@ -755,8 +827,7 @@ export default function Qibla() {
 												}
 												className="mt-3 text-sm font-medium text-primary underline underline-offset-4"
 											>
-												Change
-												location
+												Change location
 											</button>
 										</div>
 									</div>
@@ -768,3 +839,4 @@ export default function Qibla() {
 		</div>
 	);
 }
+
