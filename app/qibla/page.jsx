@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import ThemeToggle from "../components/ThemeToggle";
 
@@ -28,6 +28,14 @@ export default function Qibla() {
 
 	const [compassPermissionNeeded, setCompassPermissionNeeded] =
 		useState(false);
+
+	/*
+	 * Keep the raw compass value outside React state.
+	 * The sensor can fire many times per second.
+	 */
+	const headingRef = useRef(null);
+
+	const smoothHeadingRef = useRef(null);
 
 	// GET QIBLA FROM ALADHAN
 	const getQiblaDirection = async (lat, lon) => {
@@ -221,57 +229,16 @@ export default function Qibla() {
 		}
 	}, []);
 
-	// START DEVICE COMPASS
-	const startCompass = async () => {
-		try {
-			if (
-				typeof DeviceOrientationEvent !==
-					"undefined" &&
-				typeof DeviceOrientationEvent.requestPermission ===
-					"function"
-			) {
-				const permission =
-					await DeviceOrientationEvent.requestPermission(
-						true
-					);
+	/*
+	 * Convert a raw compass reading into a heading.
+	 */
+	const getRawHeading = (event) => {
+		let rawHeading = null;
 
-				if (permission !== "granted") {
-					setCompassSupported(false);
-					setCompassPermissionNeeded(false);
-					return;
-				}
-			}
-
-			setCompassPermissionNeeded(false);
-			setCompassSupported(true);
-
-			window.addEventListener(
-				"deviceorientation",
-				handleOrientation,
-				true
-			);
-
-			window.addEventListener(
-				"deviceorientationabsolute",
-				handleOrientation,
-				true
-			);
-		} catch (err) {
-			console.error(
-				"Compass permission error:",
-				err
-			);
-
-			setCompassSupported(false);
-			setCompassPermissionNeeded(false);
-		}
-	};
-
-	// NORMALISE DEVICE HEADING
-	const handleOrientation = (event) => {
-		let newHeading = null;
-
-		// iOS Safari provides a direct compass heading.
+		/*
+		 * iOS Safari provides the best compass value
+		 * through webkitCompassHeading.
+		 */
 		if (
 			typeof event.webkitCompassHeading ===
 				"number" &&
@@ -279,32 +246,24 @@ export default function Qibla() {
 				event.webkitCompassHeading
 			)
 		) {
-			newHeading =
+			rawHeading =
 				event.webkitCompassHeading;
 		}
 
-		// Other browsers can provide absolute alpha.
-		else if (
-			event.absolute &&
-			typeof event.alpha === "number"
-		) {
-			newHeading =
-				360 - event.alpha;
-		}
-
-		// Fallback for browsers that only provide alpha.
+		/*
+		 * Other browsers may provide alpha.
+		 */
 		else if (
 			typeof event.alpha === "number"
 		) {
-			newHeading =
+			rawHeading =
 				360 - event.alpha;
 		}
 
-		if (newHeading === null) {
-			return;
+		if (rawHeading === null) {
+			return null;
 		}
 
-		// Account for screen orientation.
 		let screenAngle = 0;
 
 		if (
@@ -321,16 +280,130 @@ export default function Qibla() {
 			screenAngle = window.orientation;
 		}
 
-		newHeading =
-			newHeading + screenAngle;
+		const correctedHeading =
+			rawHeading + screenAngle;
 
-		newHeading =
-			((newHeading % 360) + 360) % 360;
-
-		setHeading(newHeading);
+		return (
+			(correctedHeading + 360) % 360
+		);
 	};
 
-	// DEVICE COMPASS
+	/*
+	 * Smooth circular compass values.
+	 *
+	 * Normal averaging does not work properly around
+	 * 0° / 360°, so we calculate the shortest rotation.
+	 */
+	const smoothHeading = (newHeading) => {
+		if (smoothHeadingRef.current === null) {
+			smoothHeadingRef.current = newHeading;
+
+			return newHeading;
+		}
+
+		const current =
+			smoothHeadingRef.current;
+
+		let difference =
+			newHeading - current;
+
+		if (difference > 180) {
+			difference -= 360;
+		}
+
+		if (difference < -180) {
+			difference += 360;
+		}
+
+		/*
+		 * Ignore tiny sensor noise.
+		 */
+		if (Math.abs(difference) < 1.5) {
+			return current;
+		}
+
+		/*
+		 * Move only part of the distance toward
+		 * the new sensor reading.
+		 */
+		const smoothing = 0.15;
+
+		let next =
+			current +
+			difference * smoothing;
+
+		next = (next + 360) % 360;
+
+		smoothHeadingRef.current = next;
+
+		return next;
+	};
+
+	/*
+	 * DEVICE COMPASS
+	 */
+	const handleOrientation = (event) => {
+		const rawHeading =
+			getRawHeading(event);
+
+		if (rawHeading === null) {
+			return;
+		}
+
+		headingRef.current = rawHeading;
+
+		const stableHeading =
+			smoothHeading(rawHeading);
+
+		setHeading(stableHeading);
+	};
+
+	/*
+	 * START COMPASS
+	 */
+	const startCompass = async () => {
+		try {
+			if (
+				typeof DeviceOrientationEvent !==
+					"undefined" &&
+				typeof DeviceOrientationEvent.requestPermission ===
+					"function"
+			) {
+				const permission =
+					await DeviceOrientationEvent.requestPermission(
+						true
+					);
+
+				if (permission !== "granted") {
+					setCompassSupported(false);
+					setCompassPermissionNeeded(false);
+
+					return;
+				}
+			}
+
+			setCompassPermissionNeeded(false);
+			setCompassSupported(true);
+
+			window.addEventListener(
+				"deviceorientation",
+				handleOrientation,
+				true
+			);
+		} catch (err) {
+			console.error(
+				"Compass permission error:",
+				err
+			);
+
+			setCompassSupported(false);
+			setCompassPermissionNeeded(false);
+		}
+	};
+
+	/*
+	 * INITIALISE COMPASS
+	 */
 	useEffect(() => {
 		if (
 			typeof window === "undefined" ||
@@ -338,16 +411,19 @@ export default function Qibla() {
 				"undefined"
 		) {
 			setCompassSupported(false);
+
 			return;
 		}
 
-		// iOS requires permission through a user gesture.
+		/*
+		 * iOS requires permission from a button click.
+		 */
 		if (
 			typeof DeviceOrientationEvent.requestPermission ===
 			"function"
 		) {
 			setCompassPermissionNeeded(true);
-			setCompassSupported(true);
+
 			return;
 		}
 
@@ -357,21 +433,9 @@ export default function Qibla() {
 			true
 		);
 
-		window.addEventListener(
-			"deviceorientationabsolute",
-			handleOrientation,
-			true
-		);
-
 		return () => {
 			window.removeEventListener(
 				"deviceorientation",
-				handleOrientation,
-				true
-			);
-
-			window.removeEventListener(
-				"deviceorientationabsolute",
 				handleOrientation,
 				true
 			);
@@ -412,23 +476,15 @@ export default function Qibla() {
 
 	const isAligned = difference <= 5;
 
-	/*
-	 * The compass dial rotates opposite to the
-	 * direction the phone is facing.
-	 */
 	const compassRotation = -heading;
 
-	/*
-	 * Qibla is positioned using its absolute
-	 * bearing from true north.
-	 */
 	const qiblaRotation =
 		qiblaDirection !== null
 			? qiblaDirection
 			: 0;
 
 	return (
-		<div className="min-h-screen bg-background text-primary">
+		<div className="min-h-screen overflow-x-hidden bg-background text-primary">
 			<Sidebar />
 
 			<main className="ml-0 min-h-screen px-5 py-4 md:ml-64 md:px-8 md:py-5">
@@ -499,8 +555,7 @@ export default function Qibla() {
 										}
 										onChange={(e) =>
 											setLatitude(
-												e.target
-													.value
+												e.target.value
 											)
 										}
 										className="w-full rounded-xl border border-border bg-background px-4 py-3 text-primary outline-none transition focus:border-primary"
@@ -521,8 +576,7 @@ export default function Qibla() {
 										}
 										onChange={(e) =>
 											setLongitude(
-												e.target
-													.value
+												e.target.value
 											)
 										}
 										className="w-full rounded-xl border border-border bg-background px-4 py-3 text-primary outline-none transition focus:border-primary"
@@ -565,36 +619,41 @@ export default function Qibla() {
 										<div className="flex flex-col items-center">
 											<div className="relative w-full max-w-[380px]">
 												<div className="relative aspect-square">
-													{/* Fixed top indicator */}
+													{/* FIXED INDICATOR */}
 													<div className="absolute left-1/2 top-0 z-20 -translate-x-1/2">
 														<div className="h-0 w-0 border-l-[7px] border-r-[7px] border-t-[13px] border-l-transparent border-r-transparent border-t-primary" />
 													</div>
 
-													{/* Rotating compass */}
+													{/* COMPASS */}
 													<div
-														className="absolute inset-4 rounded-full border border-border bg-background transition-transform duration-200 ease-out"
+														className="absolute inset-4 rounded-full border border-border bg-background will-change-transform"
 														style={{
 															transform: `rotate(${compassRotation}deg)`,
+															transition:
+																"transform 180ms linear",
 														}}
 													>
-														{/* Cardinal directions */}
+														{/* N */}
 														<div className="absolute left-1/2 top-[8%] -translate-x-1/2 text-sm font-medium">
 															N
 														</div>
 
+														{/* E */}
 														<div className="absolute right-[8%] top-1/2 -translate-y-1/2 text-sm font-medium">
 															E
 														</div>
 
+														{/* S */}
 														<div className="absolute bottom-[8%] left-1/2 -translate-x-1/2 text-sm font-medium">
 															S
 														</div>
 
+														{/* W */}
 														<div className="absolute left-[8%] top-1/2 -translate-y-1/2 text-sm font-medium">
 															W
 														</div>
 
-														{/* Minimal tick marks */}
+														{/* SUBTLE CARDINAL MARKS */}
 														<div className="absolute left-1/2 top-[5%] h-3 w-px -translate-x-1/2 bg-border" />
 
 														<div className="absolute right-[5%] top-1/2 h-px w-3 -translate-y-1/2 bg-border" />
@@ -603,7 +662,7 @@ export default function Qibla() {
 
 														<div className="absolute left-[5%] top-1/2 h-px w-3 -translate-y-1/2 bg-border" />
 
-														{/* Qibla marker */}
+														{/* QIBLA */}
 														<div
 															className="absolute left-1/2 top-1/2 h-full w-full"
 															style={{
@@ -611,24 +670,18 @@ export default function Qibla() {
 															}}
 														>
 															<div className="absolute left-1/2 top-[8%] -translate-x-1/2">
-																<div
-																	className={`h-3.5 w-3.5 rounded-full border-2 border-background ${
-																		isAligned
-																			? "bg-primary"
-																			: "bg-primary"
-																	}`}
-																/>
+																<div className="h-3.5 w-3.5 rounded-full border-2 border-background bg-primary" />
 															</div>
 														</div>
 
-														{/* Center */}
+														{/* CENTER */}
 														<div className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-surface">
 															<div className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
 														</div>
 													</div>
 												</div>
 
-												{/* Qibla label */}
+												{/* QIBLA VALUE */}
 												<div className="mt-4 text-center">
 													<p className="text-sm text-muted">
 														Qibla
@@ -651,14 +704,14 @@ export default function Qibla() {
 												</div>
 											</div>
 
-											{/* CURRENT HEADING */}
+											{/* HEADING */}
 											<div className="mt-6 flex items-center gap-5 rounded-2xl border border-border bg-background px-5 py-4">
 												<div>
 													<p className="text-xs text-muted">
 														Your heading
 													</p>
 
-													<p className="mt-1 text-xl font-semibold">
+													<p className="mt-1 text-xl font-semibold tabular-nums">
 														{Math.round(
 															heading
 														)}
@@ -683,7 +736,7 @@ export default function Qibla() {
 												</div>
 											</div>
 
-											{/* COMPASS PERMISSION */}
+											{/* IOS COMPASS PERMISSION */}
 											{compassPermissionNeeded && (
 												<div className="mt-5 text-center">
 													<p className="text-sm leading-6 text-muted">
@@ -704,7 +757,6 @@ export default function Qibla() {
 												</div>
 											)}
 
-											{/* INSTRUCTIONS */}
 											{!compassPermissionNeeded &&
 												(compassSupported ? (
 													<p className="mt-5 max-w-md text-center text-sm leading-6 text-muted">
@@ -720,11 +772,7 @@ export default function Qibla() {
 														not provide
 														compass
 														orientation
-														data. Open
-														Mīqāt on a
-														supported phone
-														to use the live
-														compass.
+														data.
 													</p>
 												))}
 										</div>
