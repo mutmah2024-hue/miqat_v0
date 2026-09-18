@@ -1,3 +1,4 @@
+
 @import "tailwindcss";
 
 :root {
@@ -48,6 +49,18 @@
 
 html {
   background: var(--background);
+}
+
+html.text-small {
+  font-size: 90%;
+}
+
+html.text-default {
+  font-size: 100%;
+}
+
+html.text-large {
+  font-size: 110%;
 }
 
 body {

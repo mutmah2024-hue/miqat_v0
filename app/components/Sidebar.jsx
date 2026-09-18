@@ -223,7 +223,7 @@ export default function Sidebar({user}) {
 					<div className="my-2 border-t border-border" />
 
 					<Link
-						href="/settings"
+						href="../settings"
 						onClick={() => setMobileMenuOpen(false)}
 						className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted hover:bg-elevated hover:text-primary"
 					>
@@ -232,7 +232,7 @@ export default function Sidebar({user}) {
 					</Link>
 
 					<Link
-						href="/profile"
+						href="../profile"
 						onClick={() => setMobileMenuOpen(false)}
 						className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-muted hover:bg-elevated hover:text-primary"
 					>
