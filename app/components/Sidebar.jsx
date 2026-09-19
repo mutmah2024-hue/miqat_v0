@@ -41,19 +41,24 @@ const mainNavigation = [
 const toolsNavigation = [
 	{
 		name: "Qibla",
-		href: "/qibla",
+		href: "../qibla",
 		icon: "🧭",
 	},
 	{
 		name: "Tasbih",
-		href: "/tasbih",
+		href: "../tasbih",
 		icon: "◉",
 	},
 	{
 		name: "Calendar",
-		href: "/calendar",
+		href: "../calendar",
 		icon: "☾",
 	},
+	{
+		name: "Adhkār",
+		href: "../duas",
+		icon: "📿",
+	}
 ];
 
 export default function Sidebar({user}) {
@@ -211,7 +216,14 @@ export default function Sidebar({user}) {
 						<span>◉</span>
 						<span>Tasbih</span>
 					</Link>
-
+					<Link
+						href="../duas"
+						onClick={() => setMobileMenuOpen(false)}
+						className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-primary hover:bg-elevated"
+					>
+						<span>📿</span>
+						<span>Adhkār</span>
+					</Link>
 					<Link
 						href="../study"
 						onClick={() => setMobileMenuOpen(false)}
