@@ -13,80 +13,16 @@ import {
 	onAuthStateChanged,
 } from "firebase/auth";
 
-import {
-	auth,
-} from "../../lib/firebase";
+import { auth } from "../../lib/firebase";
 
 import {
 	getTasbihProgress,
 	saveTasbihProgress,
 	getTasbihItems,
 	createTasbihItem,
+	updateTasbihItem,
 	deleteTasbihItem,
 } from "../../lib/firestore";
-
-const BUILT_IN_DHIKR = [
-	{
-		id: "builtin-subhanallah",
-		key: "subhanallah",
-		name: "SubhanAllah",
-		arabic: "سُبْحَانَ اللهِ",
-		transliteration: "SubhanAllāh",
-		meaning: "Glory be to Allah",
-		type: "dhikr",
-		target: 33,
-		builtIn: true,
-	},
-
-	{
-		id: "builtin-alhamdulillah",
-		key: "alhamdulillah",
-		name: "Alhamdulillah",
-		arabic: "الْحَمْدُ لِلَّهِ",
-		transliteration: "Alhamdulillāh",
-		meaning: "All praise belongs to Allah",
-		type: "dhikr",
-		target: 33,
-		builtIn: true,
-	},
-
-	{
-		id: "builtin-allahu-akbar",
-		key: "allahu_akbar",
-		name: "Allahu Akbar",
-		arabic: "اللهُ أَكْبَرُ",
-		transliteration: "Allāhu Akbar",
-		meaning: "Allah is the Greatest",
-		type: "dhikr",
-		target: 33,
-		builtIn: true,
-	},
-
-	{
-		id: "builtin-astaghfirullah",
-		key: "astaghfirullah",
-		name: "Astaghfirullah",
-		arabic: "أَسْتَغْفِرُ اللهَ",
-		transliteration: "Astaghfirullāh",
-		meaning: "I seek forgiveness from Allah",
-		type: "dhikr",
-		target: 100,
-		builtIn: true,
-	},
-
-	{
-		id: "builtin-la-ilaha-illallah",
-		key: "la_ilaha_illallah",
-		name: "La ilaha illallah",
-		arabic: "لَا إِلٰهَ إِلَّا اللهُ",
-		transliteration: "Lā ilāha illallāh",
-		meaning:
-			"There is no deity worthy of worship except Allah",
-		type: "dhikr",
-		target: 100,
-		builtIn: true,
-	},
-];
 
 function getTodayKey() {
 	const now = new Date();
@@ -104,31 +40,43 @@ function getTodayKey() {
 	return `${year}-${month}-${day}`;
 }
 
-export default function Tasbih() {
+const emptyForm = {
+	name: "",
+	arabic: "",
+	transliteration: "",
+	meaning: "",
+	type: "dhikr",
+	target: 33,
+};
+
+export default function Tasbīh() {
 	const [user, setUser] = useState(null);
 
 	const [loading, setLoading] =
 		useState(true);
 
+	const [itemsLoading, setItemsLoading] =
+		useState(true);
+
 	const [progressLoading, setProgressLoading] =
 		useState(true);
 
-	const [itemsLoading, setItemsLoading] =
-		useState(true);
+	const [items, setItems] = useState([]);
 
 	const [counts, setCounts] =
 		useState({});
 
-	const [customItems, setCustomItems] =
-		useState([]);
-
 	const [selectedId, setSelectedId] =
-		useState(
-			"builtin-subhanallah"
-		);
+		useState(null);
 
 	const [showCreate, setShowCreate] =
 		useState(false);
+
+	const [editingItem, setEditingItem] =
+		useState(null);
+
+	const [form, setForm] =
+		useState(emptyForm);
 
 	const [savingItem, setSavingItem] =
 		useState(false);
@@ -136,10 +84,9 @@ export default function Tasbih() {
 	const [deletingItemId, setDeletingItemId] =
 		useState(null);
 
-	const [error, setError] =
-		useState("");
+	const [error, setError] = useState("");
 
-	const [createError, setCreateError] =
+	const [formError, setFormError] =
 		useState("");
 
 	const today = useMemo(
@@ -147,42 +94,24 @@ export default function Tasbih() {
 		[]
 	);
 
-	const [newItem, setNewItem] =
-		useState({
-			name: "",
-			arabic: "",
-			transliteration: "",
-			meaning: "",
-			type: "dhikr",
-			target: 33,
-		});
-
-	const allItems = [
-		...BUILT_IN_DHIKR,
-		...customItems,
-	];
-
 	const selectedItem =
-		allItems.find(
+		items.find(
 			(item) =>
 				item.id === selectedId
-		) || BUILT_IN_DHIKR[0];
+		) || null;
 
-	const currentCount = Number(
-		counts[selectedId] || 0
-	);
+	const currentCount = selectedItem
+		? Number(
+				counts[selectedItem.id] ||
+					0
+			)
+		: 0;
 
-	const currentTarget =
-		Number(
-			selectedItem.target || 33
-		);
-
-	const dailyTotal =
-		Object.values(counts).reduce(
-			(sum, count) =>
-				sum + Number(count || 0),
-			0
-		);
+	const currentTarget = selectedItem
+		? Number(
+				selectedItem.target || 33
+			)
+		: 33;
 
 	const progress =
 		currentTarget > 0
@@ -193,6 +122,13 @@ export default function Tasbih() {
 					100
 				)
 			: 0;
+
+	const dailyTotal =
+		Object.values(counts).reduce(
+			(sum, count) =>
+				sum + Number(count || 0),
+			0
+		);
 
 	useEffect(() => {
 		const unsubscribe =
@@ -205,51 +141,82 @@ export default function Tasbih() {
 					setLoading(false);
 
 					if (!currentUser) {
+						setItems([]);
 						setCounts({});
-						setCustomItems([]);
-						setProgressLoading(
-							false
-						);
+						setSelectedId(null);
+
 						setItemsLoading(
 							false
 						);
+
+						setProgressLoading(
+							false
+						);
+
 						return;
 					}
 
 					try {
 						setError("");
-						setProgressLoading(
+						setItemsLoading(
 							true
 						);
-						setItemsLoading(
+						setProgressLoading(
 							true
 						);
 
 						const [
-							savedProgress,
 							savedItems,
-						] = await Promise.all([
-							getTasbihProgress(
-								currentUser.uid,
-								today
-							),
+							savedProgress,
+						] =
+							await Promise.all([
+								getTasbihItems(
+									currentUser.uid
+								),
 
-							getTasbihItems(
-								currentUser.uid
-							),
-						]);
+								getTasbihProgress(
+									currentUser.uid,
+									today
+								),
+							]);
+
+						setItems(
+							savedItems || []
+						);
 
 						setCounts(
 							savedProgress.counts ||
 								{}
 						);
 
-						setCustomItems(
-							savedItems || []
-						);
+						const savedSelectedId =
+							localStorage.getItem(
+								"wasl_selected_tasbih"
+							);
+
+						const selectedExists =
+							savedItems?.some(
+								(item) =>
+									item.id ===
+									savedSelectedId
+							);
+
+						if (
+							selectedExists
+						) {
+							setSelectedId(
+								savedSelectedId
+							);
+						} else if (
+							savedItems?.length
+						) {
+							setSelectedId(
+								savedItems[0].id
+							);
+						}
 					} catch (error) {
 						console.error(
-							"Error loading Tasbīh data:",
+							"Error loading Tasbīh:",
 							error
 						);
 
@@ -257,11 +224,11 @@ export default function Tasbih() {
 							"Unable to load your Tasbīh."
 						);
 					} finally {
-						setProgressLoading(
+						setItemsLoading(
 							false
 						);
 
-						setItemsLoading(
+						setProgressLoading(
 							false
 						);
 					}
@@ -294,9 +261,13 @@ export default function Tasbih() {
 							"Error saving Tasbīh progress:",
 							error
 						);
+
+						setError(
+							"Unable to save your Tasbīh progress."
+						);
 					}
 				},
-				800
+				500
 			);
 
 		return () =>
@@ -308,66 +279,123 @@ export default function Tasbih() {
 		progressLoading,
 	]);
 
-	const handleCount = () => {
-		setError("");
+	const selectItem = (itemId) => {
+		setSelectedId(itemId);
+
+		localStorage.setItem(
+			"wasl_selected_tasbih",
+			itemId
+		);
+	};
+
+	const increaseCount = () => {
+		if (!selectedItem) {
+			return;
+		}
 
 		setCounts(
 			(currentCounts) => ({
 				...currentCounts,
-
-				[selectedId]:
+				[selectedItem.id]:
 					Number(
 						currentCounts[
-							selectedId
+							selectedItem.id
 						] || 0
 					) + 1,
 			})
 		);
 	};
 
-	const handleReset = () => {
-		const confirmed =
-			window.confirm(
-				"Reset this dhikr count?"
-			);
-
-		if (!confirmed) {
+	const decreaseCount = () => {
+		if (!selectedItem) {
 			return;
 		}
 
 		setCounts(
 			(currentCounts) => ({
 				...currentCounts,
-				[selectedId]: 0,
+				[selectedItem.id]:
+					Math.max(
+						Number(
+							currentCounts[
+								selectedItem.id
+							] || 0
+						) - 1,
+						0
+					),
+			})
+		);
+	};
+
+	const resetCount = () => {
+		if (!selectedItem) {
+			return;
+		}
+
+		setCounts(
+			(currentCounts) => ({
+				...currentCounts,
+				[selectedItem.id]: 0,
 			})
 		);
 	};
 
 	const openCreateModal = () => {
-		setCreateError("");
-
-		setNewItem({
-			name: "",
-			arabic: "",
-			transliteration: "",
-			meaning: "",
-			type: "dhikr",
-			target: 33,
+		setForm({
+			...emptyForm,
 		});
 
+		setFormError("");
+		setEditingItem(null);
 		setShowCreate(true);
 	};
 
-	const closeCreateModal = () => {
+	const openEditModal = (item) => {
+		setForm({
+			name: item.name || "",
+			arabic: item.arabic || "",
+			transliteration:
+				item.transliteration ||
+				"",
+			meaning:
+				item.meaning || "",
+			type:
+				item.type || "dhikr",
+			target:
+				item.target || 33,
+		});
+
+		setEditingItem(item);
+		setFormError("");
+		setShowCreate(true);
+	};
+
+	const closeModal = () => {
 		if (savingItem) {
 			return;
 		}
 
 		setShowCreate(false);
-		setCreateError("");
+		setEditingItem(null);
+		setFormError("");
+		setForm({
+			...emptyForm,
+		});
 	};
 
-	const handleCreateItem = async (
+	const updateForm = (
+		field,
+		value
+	) => {
+		setForm(
+			(currentForm) => ({
+				...currentForm,
+				[field]: value,
+			})
+		);
+	};
+
+	const handleSaveItem = async (
 		event
 	) => {
 		event.preventDefault();
@@ -376,71 +404,121 @@ export default function Tasbih() {
 			return;
 		}
 
-		const trimmedName =
-			newItem.name.trim();
+		const name =
+			form.name.trim();
 
-		if (!trimmedName) {
-			setCreateError(
+		const target =
+			Number(form.target);
+
+		if (!name) {
+			setFormError(
 				"Please enter a name."
 			);
 			return;
 		}
 
-		const target =
-			Number(newItem.target);
-
 		if (
-			!Number.isFinite(target) ||
+			!Number.isFinite(
+				target
+			) ||
 			target < 1
 		) {
-			setCreateError(
+			setFormError(
 				"Please enter a valid target."
 			);
 			return;
 		}
 
 		try {
-			setCreateError("");
 			setSavingItem(true);
+			setFormError("");
+			setError("");
 
-			const createdItem =
-				await createTasbihItem(
+			if (editingItem) {
+				await updateTasbihItem(
 					user.uid,
+					editingItem.id,
 					{
-						name: trimmedName,
+						name,
 						arabic:
-							newItem.arabic,
+							form.arabic.trim(),
 						transliteration:
-							newItem.transliteration,
+							form.transliteration.trim(),
 						meaning:
-							newItem.meaning,
+							form.meaning.trim(),
 						type:
-							newItem.type,
+							form.type,
 						target,
 					}
 				);
 
-			setCustomItems(
-				(currentItems) => [
-					createdItem,
-					...currentItems,
-				]
-			);
+				setItems(
+					(currentItems) =>
+						currentItems.map(
+							(item) =>
+								item.id ===
+								editingItem.id
+									? {
+											...item,
+											name,
+											arabic:
+												form.arabic.trim(),
+											transliteration:
+												form.transliteration.trim(),
+											meaning:
+												form.meaning.trim(),
+											type:
+												form.type,
+											target,
+										}
+									: item
+						)
+				);
+			} else {
+				const createdItem =
+					await createTasbihItem(
+						user.uid,
+						{
+							name,
+							arabic:
+								form.arabic.trim(),
+							transliteration:
+								form.transliteration.trim(),
+							meaning:
+								form.meaning.trim(),
+							type:
+								form.type,
+							target,
+						}
+					);
 
-			setSelectedId(
-				createdItem.id
-			);
+				setItems(
+					(currentItems) => [
+						createdItem,
+						...currentItems,
+					]
+				);
 
-			setShowCreate(false);
+				setSelectedId(
+					createdItem.id
+				);
+
+				localStorage.setItem(
+					"wasl_selected_tasbih",
+					createdItem.id
+				);
+			}
+
+			closeModal();
 		} catch (error) {
 			console.error(
-				"Error creating Tasbīh item:",
+				"Error saving Tasbīh item:",
 				error
 			);
 
-			setCreateError(
+			setFormError(
 				error.message ||
-					"Unable to create this item."
+					"Unable to save this item."
 			);
 		} finally {
 			setSavingItem(false);
@@ -448,19 +526,8 @@ export default function Tasbih() {
 	};
 
 	const handleDeleteItem =
-		async (itemId) => {
+		async (item) => {
 			if (!user) {
-				return;
-			}
-
-			const item =
-				customItems.find(
-					(currentItem) =>
-						currentItem.id ===
-						itemId
-				);
-
-			if (!item) {
 				return;
 			}
 
@@ -476,20 +543,20 @@ export default function Tasbih() {
 			try {
 				setError("");
 				setDeletingItemId(
-					itemId
+					item.id
 				);
 
 				await deleteTasbihItem(
 					user.uid,
-					itemId
+					item.id
 				);
 
-				setCustomItems(
+				setItems(
 					(currentItems) =>
 						currentItems.filter(
 							(currentItem) =>
 								currentItem.id !==
-								itemId
+								item.id
 						)
 				);
 
@@ -500,7 +567,7 @@ export default function Tasbih() {
 						};
 
 						delete nextCounts[
-							itemId
+							item.id
 						];
 
 						return nextCounts;
@@ -508,11 +575,36 @@ export default function Tasbih() {
 				);
 
 				if (
-					selectedId === itemId
+					selectedId === item.id
 				) {
+					const remainingItems =
+						items.filter(
+							(currentItem) =>
+								currentItem.id !==
+								item.id
+						);
+
+					const nextItem =
+						remainingItems[0] ||
+						null;
+
 					setSelectedId(
-						BUILT_IN_DHIKR[0].id
+						nextItem?.id ||
+							null
 					);
+
+					if (
+						nextItem?.id
+					) {
+						localStorage.setItem(
+							"wasl_selected_tasbih",
+							nextItem.id
+						);
+					} else {
+						localStorage.removeItem(
+							"wasl_selected_tasbih"
+						);
+					}
 				}
 			} catch (error) {
 				console.error(
@@ -570,9 +662,9 @@ export default function Tasbih() {
 				<Sidebar user={user} />
 
 				<div className="min-w-0 flex-1">
-					<div className="mx-auto max-w-5xl px-6 py-10 lg:px-10 lg:py-14">
+					<div className="mx-auto w-full min-w-0 max-w-5xl px-4 py-10 sm:px-6 lg:px-10 lg:py-14">
 						<div className="flex items-start justify-between gap-6">
-							<div>
+							<div className="min-w-0">
 								<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
 									Dhikr
 								</p>
@@ -582,8 +674,8 @@ export default function Tasbih() {
 								</h1>
 
 								<p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-									Count your dhikr and keep your
-									own adhkār and duʿās close.
+									Keep your adhkār and duʿās close,
+									and count them with intention.
 								</p>
 							</div>
 
@@ -596,90 +688,186 @@ export default function Tasbih() {
 							</div>
 						)}
 
-						{progressLoading ||
-						itemsLoading ? (
-							<div className="mt-12 rounded-3xl border border-border bg-surface px-6 py-16 text-center">
+						{itemsLoading ||
+						progressLoading ? (
+							<div className="mt-10 rounded-3xl border border-border bg-surface px-6 py-16 text-center">
 								<div className="mx-auto h-7 w-7 animate-spin rounded-full border-3 border-soft border-t-primary" />
 
 								<p className="mt-4 text-sm text-muted">
-									Loading your dhikr...
+									Loading your Tasbīh...
 								</p>
+							</div>
+						) : items.length === 0 ? (
+							<div className="mt-10 rounded-3xl border border-border bg-surface px-6 py-16 text-center">
+								<p className="text-sm text-muted">
+									You don't have any adhkār or duʿās yet.
+								</p>
+
+								<button
+									type="button"
+									onClick={
+										openCreateModal
+									}
+									className="mt-5 rounded-xl bg-primary px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
+								>
+									Add your first one
+								</button>
 							</div>
 						) : (
 							<>
-								<section className="mt-10">
-									<div className="flex items-end justify-between gap-4">
-										<div>
-											<h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-												Built-in adhkār
+								{/* Counter */}
+								<section className="mt-10 min-w-0 rounded-[2rem] border border-border bg-surface p-4 sm:p-7">
+									<div className="flex min-w-0 items-start justify-between gap-4">
+										<div className="min-w-0">
+											<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
+												{
+													selectedItem?.type ===
+													"dua"
+														? "Duʿā"
+														: "Dhikr"
+												}
+											</p>
+
+											<h2 className="mt-2 truncate text-xl font-medium text-primary">
+												{
+													selectedItem?.name
+												}
 											</h2>
 
-											<p className="mt-2 text-sm text-muted">
-												Choose a dhikr to start counting.
+											{selectedItem?.arabic && (
+												<p
+													dir="rtl"
+													className="mt-5 max-w-full break-words text-3xl leading-relaxed text-primary sm:text-4xl"
+												>
+													{
+														selectedItem.arabic
+													}
+												</p>
+											)}
+
+											{selectedItem?.transliteration && (
+												<p className="mt-3 max-w-full break-words text-sm text-muted">
+													{
+														selectedItem.transliteration
+													}
+												</p>
+											)}
+										</div>
+
+										<button
+											type="button"
+											onClick={
+												resetCount
+											}
+											className="shrink-0 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-elevated hover:text-primary"
+										>
+											Reset
+										</button>
+									</div>
+
+									<div className="mt-8 min-w-0 rounded-[2rem] border border-border bg-background px-4 py-8 text-center sm:px-5">
+										<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
+											Count
+										</p>
+
+										<p className="mt-5 text-7xl font-semibold tracking-tight text-primary sm:text-8xl">
+											{
+												currentCount
+											}
+										</p>
+
+										<div className="mt-7 flex items-center justify-center gap-4">
+											<button
+												type="button"
+												onClick={
+													decreaseCount
+												}
+												className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-border text-2xl text-primary transition-colors hover:bg-surface"
+												aria-label="Decrease count"
+											>
+												−
+											</button>
+
+											<button
+												type="button"
+												onClick={
+													increaseCount
+												}
+												className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary text-3xl font-medium text-white transition-transform active:scale-95"
+												aria-label="Increase count"
+											>
+												+
+											</button>
+										</div>
+
+										<p className="mt-6 text-sm text-muted">
+											{
+												currentCount
+											}{" "}
+											/{" "}
+											{
+												currentTarget
+											}
+										</p>
+
+										<div className="mx-auto mt-3 h-2 w-full max-w-xl overflow-hidden rounded-full bg-soft">
+											<div
+												className="h-full rounded-full bg-primary transition-all"
+												style={{
+													width: `${progress}%`,
+												}}
+											/>
+										</div>
+
+										<p className="mt-3 text-xs text-muted">
+											{currentCount >=
+											currentTarget
+												? "Target reached"
+												: `${Math.max(
+														currentTarget -
+															currentCount,
+														0
+													)} remaining`}
+										</p>
+									</div>
+
+									<div className="mt-5 flex min-w-0 justify-between gap-4 rounded-2xl border border-border bg-background px-4 py-4 sm:px-5">
+										<div className="min-w-0">
+											<p className="text-xs uppercase tracking-[0.15em] text-muted">
+												Today's total
+											</p>
+
+											<p className="mt-1 text-xl font-medium text-primary">
+												{
+													dailyTotal
+												}
+											</p>
+										</div>
+
+										<div className="min-w-0 text-right">
+											<p className="text-xs uppercase tracking-[0.15em] text-muted">
+												Target
+											</p>
+
+											<p className="mt-1 text-xl font-medium text-primary">
+												{
+													currentTarget
+												}
 											</p>
 										</div>
 									</div>
-
-									<div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-										{BUILT_IN_DHIKR.map(
-											(item) => {
-												const active =
-													item.id ===
-													selectedId;
-
-												return (
-													<button
-														key={
-															item.id
-														}
-														type="button"
-														onClick={() =>
-															setSelectedId(
-																item.id
-															)
-														}
-														className={`rounded-2xl border p-5 text-left transition-colors ${
-															active
-																? "border-primary bg-soft"
-																: "border-border bg-surface hover:bg-elevated"
-														}`}
-													>
-														<p className="text-sm font-medium text-primary">
-															{
-																item.name
-															}
-														</p>
-
-														<p
-															dir="rtl"
-															className="mt-4 text-2xl leading-relaxed text-primary"
-														>
-															{
-																item.arabic
-															}
-														</p>
-
-														<p className="mt-2 text-xs leading-5 text-muted">
-															{
-																item.meaning
-															}
-														</p>
-													</button>
-												);
-											}
-										)}
-									</div>
 								</section>
 
-								<section className="mt-10">
-									<div className="flex items-center justify-between gap-4">
-										<div>
+								{/* Collection */}
+								<section className="mt-10 min-w-0">
+									<div className="flex items-end justify-between gap-4">
+										<div className="min-w-0">
 											<h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-												My adhkār & duʿās
+												Your collection
 											</h2>
 
 											<p className="mt-2 text-sm text-muted">
-												Add your own and count them too.
+												Choose what you want to count.
 											</p>
 										</div>
 
@@ -688,107 +876,115 @@ export default function Tasbih() {
 											onClick={
 												openCreateModal
 											}
-											className="rounded-xl bg-primary px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
+											className="shrink-0 rounded-xl bg-primary px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
 										>
-											Add your own
+											Add new
 										</button>
 									</div>
 
-									{customItems.length ===
-									0 ? (
-										<div className="mt-4 rounded-2xl border border-dashed border-border bg-surface px-6 py-8 text-center">
-											<p className="text-sm text-muted">
-												You haven't added any yet.
-											</p>
-										</div>
-									) : (
-										<div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-											{customItems.map(
-												(item) => {
-													const active =
-														item.id ===
-														selectedId;
+									<div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+										{items.map(
+											(item) => {
+												const active =
+													item.id ===
+													selectedId;
 
-													return (
-														<div
-															key={
-																item.id
+												const itemCount =
+													Number(
+														counts[
+															item.id
+														] || 0
+													);
+
+												return (
+													<div
+														key={
+															item.id
+														}
+														className={`min-w-0 rounded-2xl border p-4 transition-colors sm:p-5 ${
+															active
+																? "border-primary bg-soft"
+																: "border-border bg-surface"
+														}`}
+													>
+														<button
+															type="button"
+															onClick={() =>
+																selectItem(
+																	item.id
+																)
 															}
-															className={`rounded-2xl border p-5 transition-colors ${
-																active
-																	? "border-primary bg-soft"
-																	: "border-border bg-surface"
-															}`}
+															className="block w-full min-w-0 text-left"
 														>
-															<button
-																type="button"
-																onClick={() =>
-																	setSelectedId(
-																		item.id
-																	)
-																}
-																className="w-full text-left"
-															>
-																<div className="flex items-center justify-between gap-3">
-																	<p className="text-sm font-medium text-primary">
-																		{
-																			item.name
-																		}
-																	</p>
-
-																	<span className="rounded-full bg-background px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted">
-																		{
-																			item.type
-																		}
-																	</span>
-																</div>
-
-																{item.arabic && (
-																	<p
-																		dir="rtl"
-																		className="mt-4 text-2xl leading-relaxed text-primary"
-																	>
-																		{
-																			item.arabic
-																		}
-																	</p>
-																)}
-
-																{item.meaning && (
-																	<p className="mt-2 text-xs leading-5 text-muted">
-																		{
-																			item.meaning
-																		}
-																	</p>
-																)}
-
-																<p className="mt-4 text-xs text-muted">
+															<div className="flex min-w-0 items-center justify-between gap-3">
+																<h3 className="min-w-0 truncate text-sm font-medium text-primary">
 																	{
-																		Number(
-																			counts[
-																				item.id
-																			] || 0
-																		)
+																		item.name
+																	}
+																</h3>
+
+																<span className="shrink-0 rounded-full bg-background px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted">
+																	{
+																		item.type
+																	}
+																</span>
+															</div>
+
+															{item.arabic && (
+																<p
+																	dir="rtl"
+																	className="mt-4 max-w-full break-words text-xl leading-relaxed text-primary"
+																>
+																	{
+																		item.arabic
+																	}
+																</p>
+															)}
+
+															<div className="mt-4 flex min-w-0 items-center justify-between gap-3">
+																<p className="text-xs text-muted">
+																	{
+																		itemCount
 																	}{" "}
 																	/{" "}
 																	{
 																		item.target
 																	}
 																</p>
+
+																{active && (
+																	<span className="shrink-0 text-xs font-medium text-primary">
+																		Selected
+																	</span>
+																)}
+															</div>
+														</button>
+
+														<div className="mt-4 flex items-center gap-4 border-t border-border pt-4">
+															<button
+																type="button"
+																onClick={() =>
+																	openEditModal(
+																		item
+																	)
+																}
+																className="text-xs font-medium text-primary transition-opacity hover:opacity-70"
+															>
+																Edit
 															</button>
 
 															<button
 																type="button"
 																onClick={() =>
 																	handleDeleteItem(
-																		item.id
+																		item
 																	)
 																}
 																disabled={
 																	deletingItemId ===
 																	item.id
 																}
-																className="mt-4 text-xs font-medium text-muted transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+																className="text-xs font-medium text-muted transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
 															>
 																{deletingItemId ===
 																item.id
@@ -796,153 +992,10 @@ export default function Tasbih() {
 																	: "Delete"}
 															</button>
 														</div>
-													);
-												}
-											)}
-										</div>
-									)}
-								</section>
-
-								<section className="mt-10 grid gap-5 lg:grid-cols-[1fr_280px]">
-									<div className="rounded-3xl border border-border bg-surface p-5 sm:p-7">
-										<div className="flex items-start justify-between gap-4">
-											<div>
-												<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
-													{selectedItem.type ===
-													"dua"
-														? "Duʿā"
-														: "Dhikr"}
-												</p>
-
-												<h2 className="mt-2 text-xl font-medium text-primary">
-													{
-														selectedItem.name
-													}
-												</h2>
-
-												{selectedItem.arabic && (
-													<p
-														dir="rtl"
-														className="mt-5 text-3xl leading-relaxed text-primary sm:text-4xl"
-													>
-														{
-															selectedItem.arabic
-														}
-													</p>
-												)}
-
-												{selectedItem.transliteration && (
-													<p className="mt-3 text-sm text-muted">
-														{
-															selectedItem.transliteration
-														}
-													</p>
-												)}
-											</div>
-
-											<button
-												type="button"
-												onClick={
-													handleReset
-												}
-												className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-elevated hover:text-primary"
-											>
-												Reset
-											</button>
-										</div>
-
-										<button
-											type="button"
-											onClick={
-												handleCount
+													</div>
+												);
 											}
-											className="mt-8 flex min-h-[340px] w-full flex-col items-center justify-center rounded-[2rem] border border-border bg-background text-center transition-transform active:scale-[0.99]"
-											aria-label={`Count ${selectedItem.name}`}
-										>
-											<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
-												Tap to count
-											</p>
-
-											<p className="mt-6 text-7xl font-semibold tracking-tight text-primary sm:text-8xl">
-												{
-													currentCount
-												}
-											</p>
-
-											<p className="mt-3 text-sm text-muted">
-												{currentCount >=
-												currentTarget
-													? "Target reached"
-													: `${Math.max(
-															currentTarget -
-																currentCount,
-															0
-														)} remaining`}
-											</p>
-										</button>
-
-										<div className="mt-6">
-											<div className="flex items-center justify-between text-xs text-muted">
-												<span>
-													Progress
-												</span>
-
-												<span>
-													{currentCount}{" "}
-													/{" "}
-													{
-														currentTarget
-													}
-												</span>
-											</div>
-
-											<div className="mt-2 h-2 overflow-hidden rounded-full bg-soft">
-												<div
-													className="h-full rounded-full bg-primary transition-all"
-													style={{
-														width: `${progress}%`,
-													}}
-												/>
-											</div>
-										</div>
-									</div>
-
-									<div className="space-y-5">
-										<div className="rounded-3xl border border-border bg-surface p-6">
-											<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
-												Target
-											</p>
-
-											<p className="mt-4 text-4xl font-semibold tracking-tight text-primary">
-												{
-													currentTarget
-												}
-											</p>
-
-											<p className="mt-2 text-sm leading-6 text-muted">
-												Target for this {selectedItem.type ===
-												"dua"
-													? "duʿā"
-													: "dhikr"}
-												.
-											</p>
-										</div>
-
-										<div className="rounded-3xl border border-border bg-surface p-6">
-											<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
-												Today
-											</p>
-
-											<p className="mt-4 text-4xl font-semibold tracking-tight text-primary">
-												{
-													dailyTotal
-												}
-											</p>
-
-											<p className="mt-2 text-sm leading-6 text-muted">
-												Total counted today.
-											</p>
-										</div>
+										)}
 									</div>
 								</section>
 							</>
@@ -951,29 +1004,34 @@ export default function Tasbih() {
 				</div>
 			</div>
 
+			{/* Create / Edit Modal */}
 			{showCreate && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6">
-					<div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-lg">
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 sm:px-6">
+					<div className="max-h-[90vh] w-full max-w-lg min-w-0 overflow-y-auto rounded-2xl border border-border bg-surface p-5 shadow-lg sm:p-6">
 						<div className="flex items-start justify-between gap-4">
-							<div>
+							<div className="min-w-0">
 								<h2 className="text-lg font-semibold text-primary">
-									Add adhkār or duʿā
+									{editingItem
+										? "Edit adhkār or duʿā"
+										: "Add adhkār or duʿā"}
 								</h2>
 
 								<p className="mt-1 text-sm leading-6 text-muted">
-									Create your own item and use it in the counter.
+									{editingItem
+										? "Update this item."
+										: "Create an item for your Tasbīh collection."}
 								</p>
 							</div>
 
 							<button
 								type="button"
 								onClick={
-									closeCreateModal
+									closeModal
 								}
 								disabled={
 									savingItem
 								}
-								className="text-xl leading-none text-muted transition-colors hover:text-primary disabled:opacity-50"
+								className="shrink-0 text-xl leading-none text-muted transition-colors hover:text-primary disabled:opacity-50"
 								aria-label="Close"
 							>
 								×
@@ -982,7 +1040,7 @@ export default function Tasbih() {
 
 						<form
 							onSubmit={
-								handleCreateItem
+								handleSaveItem
 							}
 							className="mt-6 space-y-5"
 						>
@@ -995,15 +1053,13 @@ export default function Tasbih() {
 									<button
 										type="button"
 										onClick={() =>
-											setNewItem(
-												(current) => ({
-													...current,
-													type: "dhikr",
-												})
+											updateForm(
+												"type",
+												"dhikr"
 											)
 										}
 										className={`rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
-											newItem.type ===
+											form.type ===
 											"dhikr"
 												? "border-primary bg-soft text-primary"
 												: "border-border text-muted hover:bg-elevated"
@@ -1015,15 +1071,13 @@ export default function Tasbih() {
 									<button
 										type="button"
 										onClick={() =>
-											setNewItem(
-												(current) => ({
-													...current,
-													type: "dua",
-												})
+											updateForm(
+												"type",
+												"dua"
 											)
 										}
 										className={`rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
-											newItem.type ===
+											form.type ===
 											"dua"
 												? "border-primary bg-soft text-primary"
 												: "border-border text-muted hover:bg-elevated"
@@ -1046,25 +1100,20 @@ export default function Tasbih() {
 									id="tasbih-name"
 									type="text"
 									value={
-										newItem.name
+										form.name
 									}
-									onChange={(
-										event
-									) =>
-										setNewItem(
-											(current) => ({
-												...current,
-												name:
-													event.target
-														.value,
-											})
+									onChange={(event) =>
+										updateForm(
+											"name",
+											event.target
+												.value
 										)
 									}
-									placeholder="e.g. Morning dhikr"
+									placeholder="e.g. Morning adhkār"
 									disabled={
 										savingItem
 									}
-									className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary disabled:opacity-50"
+									className="mt-2 w-full min-w-0 rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-primary disabled:opacity-50"
 								/>
 							</div>
 
@@ -1079,27 +1128,22 @@ export default function Tasbih() {
 								<textarea
 									id="tasbih-arabic"
 									value={
-										newItem.arabic
+										form.arabic
 									}
-									onChange={(
-										event
-									) =>
-										setNewItem(
-											(current) => ({
-												...current,
-												arabic:
-													event.target
-														.value,
-											})
+									onChange={(event) =>
+										updateForm(
+											"arabic",
+											event.target
+												.value
 										)
 									}
-									placeholder="أدخل النص العربي"
 									dir="rtl"
 									rows={3}
+									placeholder="النص العربي"
 									disabled={
 										savingItem
 									}
-									className="mt-2 w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-base leading-8 text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary disabled:opacity-50"
+									className="mt-2 w-full min-w-0 resize-none rounded-xl border border-border bg-background px-4 py-3 text-base leading-8 text-foreground outline-none placeholder:text-muted focus:border-primary disabled:opacity-50"
 								/>
 							</div>
 
@@ -1115,25 +1159,20 @@ export default function Tasbih() {
 									id="tasbih-transliteration"
 									type="text"
 									value={
-										newItem.transliteration
+										form.transliteration
 									}
-									onChange={(
-										event
-									) =>
-										setNewItem(
-											(current) => ({
-												...current,
-												transliteration:
-													event.target
-														.value,
-											})
+									onChange={(event) =>
+										updateForm(
+											"transliteration",
+											event.target
+												.value
 										)
 									}
 									placeholder="Optional"
 									disabled={
 										savingItem
 									}
-									className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary disabled:opacity-50"
+									className="mt-2 w-full min-w-0 rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-primary disabled:opacity-50"
 								/>
 							</div>
 
@@ -1148,26 +1187,21 @@ export default function Tasbih() {
 								<textarea
 									id="tasbih-meaning"
 									value={
-										newItem.meaning
+										form.meaning
 									}
-									onChange={(
-										event
-									) =>
-										setNewItem(
-											(current) => ({
-												...current,
-												meaning:
-													event.target
-														.value,
-											})
+									onChange={(event) =>
+										updateForm(
+											"meaning",
+											event.target
+												.value
 										)
 									}
-									placeholder="Optional"
 									rows={3}
+									placeholder="Optional"
 									disabled={
 										savingItem
 									}
-									className="mt-2 w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary disabled:opacity-50"
+									className="mt-2 w-full min-w-0 resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-primary disabled:opacity-50"
 								/>
 							</div>
 
@@ -1184,40 +1218,35 @@ export default function Tasbih() {
 									type="number"
 									min="1"
 									value={
-										newItem.target
+										form.target
 									}
-									onChange={(
-										event
-									) =>
-										setNewItem(
-											(current) => ({
-												...current,
-												target:
-													event.target
-														.value,
-											})
+									onChange={(event) =>
+										updateForm(
+											"target",
+											event.target
+												.value
 										)
 									}
 									disabled={
 										savingItem
 									}
-									className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-primary disabled:opacity-50"
+									className="mt-2 w-full min-w-0 rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none focus:border-primary disabled:opacity-50"
 								/>
 							</div>
 
-							{createError && (
+							{formError && (
 								<div className="rounded-xl border border-border bg-soft px-4 py-3 text-sm text-primary">
 									{
-										createError
+										formError
 									}
 								</div>
 							)}
 
-							<div className="flex justify-end gap-3">
+							<div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 								<button
 									type="button"
 									onClick={
-										closeCreateModal
+										closeModal
 									}
 									disabled={
 										savingItem
@@ -1236,7 +1265,9 @@ export default function Tasbih() {
 								>
 									{savingItem
 										? "Saving..."
-										: "Save"}
+										: editingItem
+											? "Save changes"
+											: "Save"}
 								</button>
 							</div>
 						</form>

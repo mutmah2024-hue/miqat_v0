@@ -8,6 +8,9 @@ import { onAuthStateChanged } from "firebase/auth";
 
 import { auth } from "../../lib/firebase";
 
+import ReflectionEditor from "./components/ReflectionEditor";
+import ReflectionHistory from "./components/ReflectionHistory";
+
 export default function Reflection() {
 	const [user, setUser] = useState(null);
 	const [loading, setLoading] = useState(true);
@@ -62,32 +65,33 @@ export default function Reflection() {
 			<div className="flex min-h-screen">
 				<Sidebar user={user} />
 
-				{/* <ThemeToggle /> */}
-
 				<div className="min-w-0 flex-1">
-					<div className="flex min-h-screen items-center justify-center px-6 py-10">
-						<div className="w-full max-w-lg text-center">
+					<div className="mx-auto w-full min-w-0 max-w-4xl px-4 py-10 sm:px-6 lg:px-10 lg:py-14">
+						<div className="flex items-start justify-between gap-4">
+							<div className="min-w-0">
+								<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
+									Reflection
+								</p>
 
-							
+								<h1 className="mt-3 text-3xl font-semibold tracking-tight text-primary sm:text-4xl">
+									A quiet moment
+								</h1>
 
-							<p className="mt-8 text-xs font-medium uppercase tracking-[0.2em] text-muted">
-								REFLECTION
-							</p>
-
-							<h1 className="mt-4 text-3xl font-semibold tracking-tight text-primary sm:text-4xl">
-								Coming soon
-							</h1>
-
-							<p className="mx-auto mt-4 max-w-md text-sm leading-7 text-muted">
-								Reflection is on its way. Soon, you'll
-								have a quiet space to pause, reflect,
-								and reconnect with what matters.
-							</p>
-
-							<div className="mt-8 inline-flex rounded-xl bg-soft px-5 py-3 text-sm font-medium text-primary">
-								Available soon
+								<p className="mt-2 max-w-xl text-sm leading-6 text-muted">
+									Slow down, put your thoughts into words,
+									and make space to reconnect with what matters.
+								</p>
 							</div>
 
+							<ThemeToggle />
+						</div>
+
+						<div className="mt-10">
+							<ReflectionEditor user={user} />
+						</div>
+
+						<div className="mt-12">
+							<ReflectionHistory user={user} />
 						</div>
 					</div>
 				</div>

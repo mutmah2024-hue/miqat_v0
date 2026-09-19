@@ -21,6 +21,9 @@ import {
 	getStudyMaterials,
 	createStudyMaterial,
 	deleteStudyMaterial,
+	saveStudyGuide,
+	saveFlashcards,
+	savePracticeTest,
 } from "../../../lib/firestore";
 
 export default function StudyTopic({
@@ -52,6 +55,9 @@ export default function StudyTopic({
 	const [addingMaterial, setAddingMaterial] =
 		useState(false);
 
+	const [materialStatuses, setMaterialStatuses] =
+		useState({});
+
 	const [error, setError] = useState("");
 
 	useEffect(() => {
@@ -81,48 +87,48 @@ export default function StudyTopic({
 						const loadedTopic =
 							await getStudyTopic(
 								currentUser.uid,
-								topicId
+								topicId,
 							);
 
 						const loadedMaterials =
 							await getStudyMaterials(
 								currentUser.uid,
-								topicId
+								topicId,
 							);
 
 						setTopic(
-							loadedTopic
+							loadedTopic,
 						);
 
 						setMaterials(
-							loadedMaterials
+							loadedMaterials,
 						);
 
 						console.log(
 							"STUDY MATERIALS:",
-							loadedMaterials
+							loadedMaterials,
 						);
 					} catch (error) {
 						console.error(
 							"Error loading study topic:",
-							error
+							error,
 						);
 
 						setError(
-							"Unable to load this study topic."
+							"Unable to load this study topic.",
 						);
 					} finally {
 						setTopicLoading(false);
 						setMaterialsLoading(false);
 					}
-				}
+				},
 			);
 
 		return () => unsubscribe();
 	}, [params]);
 
 	const handleFileChange = (
-		event
+		event,
 	) => {
 		const file =
 			event.target.files?.[0];
@@ -140,7 +146,7 @@ export default function StudyTopic({
 				.endsWith(".pdf")
 		) {
 			setError(
-				"Only PDF files can be added."
+				"Only PDF files can be added.",
 			);
 
 			event.target.value = "";
@@ -155,17 +161,204 @@ export default function StudyTopic({
 			const fileName =
 				file.name.replace(
 					/\.pdf$/i,
-					""
+					"",
 				);
 
 			setMaterialName(
-				fileName
+				fileName,
 			);
 		}
 	};
 
+	const generateStudyMaterials =
+		async (newMaterial) => {
+			if (
+				!newMaterial?.filePath ||
+				!newMaterial?.id ||
+				!user ||
+				!topic
+			) {
+				throw new Error(
+					"Study material information is missing.",
+				);
+			}
+
+			const requestBody = {
+				filePath:
+					newMaterial.filePath,
+				materialName:
+					newMaterial.name,
+				topicName:
+					topic.name,
+			};
+
+			const generate = async (
+				endpoint,
+			) => {
+				const response =
+					await fetch(
+						endpoint,
+						{
+							method: "POST",
+							headers: {
+								"Content-Type":
+									"application/json",
+							},
+							body: JSON.stringify(
+								requestBody,
+							),
+						},
+					);
+
+				const contentType =
+					response.headers.get(
+						"content-type",
+					) || "";
+
+				const rawResponse =
+					await response.text();
+
+				let result = null;
+
+				if (
+					contentType.includes(
+						"application/json",
+					)
+				) {
+					try {
+						result =
+							JSON.parse(
+								rawResponse,
+							);
+					} catch (parseError) {
+						console.error(
+							`Invalid JSON from ${endpoint}:`,
+							rawResponse,
+						);
+
+						throw new Error(
+							`The ${endpoint} endpoint returned invalid JSON.`,
+						);
+					}
+				} else {
+					console.error(
+						`Non-JSON response from ${endpoint}:`,
+						rawResponse,
+					);
+
+					throw new Error(
+						`${endpoint} returned an unexpected response (${response.status}). Check the terminal for the server error.`,
+					);
+				}
+
+				if (!response.ok) {
+					throw new Error(
+						result?.error ||
+							`Unable to generate content from ${endpoint}.`,
+					);
+				}
+
+				return result;
+			};
+
+			const [
+				studyGuideResult,
+				flashcardsResult,
+				practiceTestResult,
+			] = await Promise.all([
+				generate(
+					"/api/study/generate-guide",
+				),
+
+				generate(
+					"/api/study/generate-flashcards",
+				),
+
+				generate(
+					"/api/study/generate-practice-test",
+				),
+			]);
+
+			console.log(
+				"STUDY GUIDE RESULT:",
+				studyGuideResult,
+			);
+
+			console.log(
+				"FLASHCARDS RESULT:",
+				flashcardsResult,
+			);
+
+			console.log(
+				"PRACTICE TEST RESULT:",
+				practiceTestResult,
+			);
+
+			if (
+				!studyGuideResult?.studyGuide
+			) {
+				throw new Error(
+					"Study Guide generation failed.",
+				);
+			}
+
+			if (
+				!flashcardsResult?.flashcards
+			) {
+				throw new Error(
+					"Flashcards generation failed.",
+				);
+			}
+
+			if (
+				!practiceTestResult?.practiceTest
+			) {
+				throw new Error(
+					"Practice Test generation failed.",
+				);
+			}
+
+			await Promise.all([
+				saveStudyGuide(
+					user.uid,
+					topic.id,
+					newMaterial.id,
+					studyGuideResult.studyGuide,
+				),
+
+				saveFlashcards(
+					user.uid,
+					topic.id,
+					newMaterial.id,
+					flashcardsResult.flashcards,
+				),
+
+				savePracticeTest(
+					user.uid,
+					topic.id,
+					newMaterial.id,
+					practiceTestResult.practiceTest.practiceTest,
+				),
+			]);
+
+			console.log(
+				"All study materials saved successfully.",
+			);
+
+			return {
+				studyGuide:
+					studyGuideResult.studyGuide,
+
+				flashcards:
+					flashcardsResult.flashcards,
+
+				practiceTest:
+					practiceTestResult.practiceTest.practiceTest,
+			};
+		};
+
 	const handleAddMaterial = async (
-		event
+		event,
 	) => {
 		event.preventDefault();
 
@@ -175,7 +368,7 @@ export default function StudyTopic({
 
 		if (!selectedFile) {
 			setError(
-				"Please select a PDF file."
+				"Please select a PDF file.",
 			);
 			return;
 		}
@@ -185,7 +378,7 @@ export default function StudyTopic({
 
 		if (!trimmedName) {
 			setError(
-				"Please enter a material name."
+				"Please enter a material name.",
 			);
 			return;
 		}
@@ -199,17 +392,17 @@ export default function StudyTopic({
 
 			formData.append(
 				"file",
-				selectedFile
+				selectedFile,
 			);
 
 			formData.append(
 				"userId",
-				user.uid
+				user.uid,
 			);
 
 			formData.append(
 				"topicId",
-				topic.id
+				topic.id,
 			);
 
 			const uploadResponse =
@@ -218,16 +411,60 @@ export default function StudyTopic({
 					{
 						method: "POST",
 						body: formData,
-					}
+					},
 				);
 
-			const uploadResult =
-				await uploadResponse.json();
+			const uploadContentType =
+				uploadResponse.headers.get(
+					"content-type",
+				) || "";
+
+			const uploadRawResponse =
+				await uploadResponse.text();
+
+			let uploadResult = null;
+
+			if (
+				uploadContentType.includes(
+					"application/json",
+				)
+			) {
+				try {
+					uploadResult =
+						JSON.parse(
+							uploadRawResponse,
+						);
+				} catch (parseError) {
+					console.error(
+						"Invalid upload response:",
+						uploadRawResponse,
+					);
+
+					throw new Error(
+						"The upload endpoint returned invalid JSON.",
+					);
+				}
+			} else {
+				console.error(
+					"Non-JSON upload response:",
+					uploadRawResponse,
+				);
+
+				throw new Error(
+					`The upload endpoint returned an unexpected response (${uploadResponse.status}).`,
+				);
+			}
 
 			if (!uploadResponse.ok) {
 				throw new Error(
-					uploadResult.error ||
-						"Unable to upload the PDF."
+					uploadResult?.error ||
+						"Unable to upload the PDF.",
+				);
+			}
+
+			if (!uploadResult?.filePath) {
+				throw new Error(
+					"The PDF uploaded, but no file path was returned.",
 				);
 			}
 
@@ -238,45 +475,141 @@ export default function StudyTopic({
 					{
 						name: trimmedName,
 						type: "pdf",
-						size: selectedFile.size,
+						size:
+							selectedFile.size,
 						fileName:
 							selectedFile.name,
 						filePath:
 							uploadResult.filePath,
-					}
+					},
 				);
 
 			setMaterials(
 				(currentMaterials) => [
 					newMaterial,
 					...currentMaterials,
-				]
+				],
 			);
 
+			setMaterialStatuses(
+				(currentStatuses) => ({
+					...currentStatuses,
+					[newMaterial.id]:
+						"preparing",
+				}),
+			);
+
+			/*
+			 * The PDF and Firestore material
+			 * now exist successfully.
+			 *
+			 * Close the modal immediately so
+			 * the user does not think the upload
+			 * failed while the AI generation runs.
+			 */
+
+			setShowAddMaterial(false);
 			setMaterialName("");
 			setSelectedFile(null);
-			setShowAddMaterial(false);
+			setAddingMaterial(false);
+
+			/*
+			 * Generate the study resources
+			 * in the background.
+			 */
+
+			try {
+				const generatedMaterials =
+					await generateStudyMaterials(
+						newMaterial,
+					);
+
+				setMaterials(
+					(currentMaterials) =>
+						currentMaterials.map(
+							(material) =>
+								material.id ===
+								newMaterial.id
+									? {
+											...material,
+											studyGuide:
+												generatedMaterials.studyGuide,
+											flashcards:
+												generatedMaterials.flashcards,
+											practiceTest:
+												generatedMaterials.practiceTest,
+										}
+									: material,
+						),
+				);
+
+				setMaterialStatuses(
+					(currentStatuses) => ({
+						...currentStatuses,
+						[newMaterial.id]:
+							"ready",
+					}),
+				);
+
+				console.log(
+					"Study materials generated successfully.",
+				);
+			} catch (generationError) {
+				console.error(
+					"Error generating study materials:",
+					generationError,
+				);
+
+				setMaterialStatuses(
+					(currentStatuses) => ({
+						...currentStatuses,
+						[newMaterial.id]:
+							"error",
+					}),
+				);
+
+				setError(
+					generationError.message ||
+						"The material was uploaded, but the study resources could not be generated.",
+				);
+			}
 		} catch (error) {
 			console.error(
 				"Error creating study material:",
-				error
+				error,
 			);
 
 			setError(
 				error.message ||
-					"Unable to add this material. Please try again."
+					"Unable to add this material. Please try again.",
 			);
-		} finally {
+
 			setAddingMaterial(false);
 		}
 	};
 
+	const openMaterialStudyPage = (
+		materialId,
+	) => {
+		const status =
+			materialStatuses[
+				materialId
+			];
+
+		if (status === "preparing") {
+			return;
+		}
+
+		window.location.href =
+			`/study/${topic.id}/${materialId}`;
+	};
+
 	const handleOpenMaterial = async (
-		material
+		material,
 	) => {
 		if (!material?.filePath) {
 			setError(
-				"This material does not have a stored PDF."
+				"This material does not have a stored PDF.",
 			);
 			return;
 		}
@@ -297,129 +630,217 @@ export default function StudyTopic({
 							filePath:
 								material.filePath,
 						}),
-					}
+					},
 				);
 
-			const result =
-				await response.json();
+			const contentType =
+				response.headers.get(
+					"content-type",
+				) || "";
+
+			const rawResponse =
+				await response.text();
+
+			let result = null;
+
+			if (
+				contentType.includes(
+					"application/json",
+				)
+			) {
+				try {
+					result =
+						JSON.parse(
+							rawResponse,
+						);
+				} catch (parseError) {
+					throw new Error(
+						"The PDF endpoint returned invalid JSON.",
+					);
+				}
+			} else {
+				console.error(
+					"Non-JSON PDF URL response:",
+					rawResponse,
+				);
+
+				throw new Error(
+					`The PDF endpoint returned an unexpected response (${response.status}).`,
+				);
+			}
 
 			if (!response.ok) {
 				throw new Error(
-					result.error ||
-						"Unable to open this PDF."
+					result?.error ||
+						"Unable to open this PDF.",
+				);
+			}
+
+			if (!result?.url) {
+				throw new Error(
+					"No PDF URL was returned.",
 				);
 			}
 
 			window.open(
 				result.url,
 				"_blank",
-				"noopener,noreferrer"
+				"noopener,noreferrer",
 			);
 		} catch (error) {
 			console.error(
 				"Error opening material:",
-				error
+				error,
 			);
 
 			setError(
 				error.message ||
-					"Unable to open this PDF."
+					"Unable to open this PDF.",
 			);
 		}
 	};
 
-	const handleDeleteMaterial = async (
-		materialId
-	) => {
-		if (!user || !topic) {
-			return;
-		}
-
-		const material =
-			materials.find(
-				(item) =>
-					item.id ===
-					materialId
-			);
-
-		if (!material) {
-			return;
-		}
-
-		const confirmed =
-			window.confirm(
-				"Are you sure you want to delete this material?"
-			);
-
-		if (!confirmed) {
-			return;
-		}
-
-		try {
-			setError("");
-			setDeletingMaterialId(
-				materialId
-			);
-
-			if (material.filePath) {
-				const response =
-					await fetch(
-						"/api/study/material/delete",
-						{
-							method: "POST",
-							headers: {
-								"Content-Type":
-									"application/json",
-							},
-							body: JSON.stringify({
-								filePath:
-									material.filePath,
-							}),
-						}
-					);
-
-				const result =
-					await response.json();
-
-				if (!response.ok) {
-					throw new Error(
-						result.error ||
-							"Unable to delete the PDF."
-					);
-				}
+	const handleDeleteMaterial =
+		async (materialId) => {
+			if (!user || !topic) {
+				return;
 			}
 
-			await deleteStudyMaterial(
-				user.uid,
-				topic.id,
-				materialId
-			);
+			const material =
+				materials.find(
+					(item) =>
+						item.id ===
+						materialId,
+				);
 
-			setMaterials(
-				(currentMaterials) =>
-					currentMaterials.filter(
-						(material) =>
-							material.id !==
+			if (!material) {
+				return;
+			}
+
+			const confirmed =
+				window.confirm(
+					"Are you sure you want to delete this material?",
+				);
+
+			if (!confirmed) {
+				return;
+			}
+
+			try {
+				setError("");
+				setDeletingMaterialId(
+					materialId,
+				);
+
+				if (material.filePath) {
+					const response =
+						await fetch(
+							"/api/study/material/delete",
+							{
+								method: "POST",
+								headers: {
+									"Content-Type":
+										"application/json",
+								},
+								body: JSON.stringify({
+									filePath:
+										material.filePath,
+								}),
+							},
+						);
+
+					const contentType =
+						response.headers.get(
+							"content-type",
+						) || "";
+
+					const rawResponse =
+						await response.text();
+
+					let result = null;
+
+					if (
+						contentType.includes(
+							"application/json",
+						)
+					) {
+						try {
+							result =
+								JSON.parse(
+									rawResponse,
+								);
+						} catch (parseError) {
+							throw new Error(
+								"The delete endpoint returned invalid JSON.",
+							);
+						}
+					} else {
+						console.error(
+							"Non-JSON delete response:",
+							rawResponse,
+						);
+
+						throw new Error(
+							`The delete endpoint returned an unexpected response (${response.status}).`,
+						);
+					}
+
+					if (!response.ok) {
+						throw new Error(
+							result?.error ||
+								"Unable to delete the PDF.",
+						);
+					}
+				}
+
+				await deleteStudyMaterial(
+					user.uid,
+					topic.id,
+					materialId,
+				);
+
+				setMaterials(
+					(currentMaterials) =>
+						currentMaterials.filter(
+							(material) =>
+								material.id !==
+								materialId,
+						),
+				);
+
+				setMaterialStatuses(
+					(currentStatuses) => {
+						const updatedStatuses =
+							{
+								...currentStatuses,
+							};
+
+						delete updatedStatuses[
 							materialId
-					)
-			);
-		} catch (error) {
-			console.error(
-				"Error deleting study material:",
-				error
-			);
+						];
 
-			setError(
-				error.message ||
-					"Unable to delete this material. Please try again."
-			);
-		} finally {
-			setDeletingMaterialId(null);
-		}
-	};
+						return updatedStatuses;
+					},
+				);
+			} catch (error) {
+				console.error(
+					"Error deleting study material:",
+					error,
+				);
+
+				setError(
+					error.message ||
+						"Unable to delete this material. Please try again.",
+				);
+			} finally {
+				setDeletingMaterialId(
+					null,
+				);
+			}
+		};
 
 	const formatFileSize = (
-		bytes
+		bytes,
 	) => {
 		if (!bytes) {
 			return "";
@@ -430,13 +851,17 @@ export default function StudyTopic({
 			(1024 * 1024);
 
 		if (megabytes >= 1) {
-			return `${megabytes.toFixed(1)} MB`;
+			return `${megabytes.toFixed(
+				1,
+			)} MB`;
 		}
 
 		const kilobytes =
 			bytes / 1024;
 
-		return `${kilobytes.toFixed(0)} KB`;
+		return `${kilobytes.toFixed(
+			0,
+		)} KB`;
 	};
 
 	const closeAddMaterial = () => {
@@ -450,7 +875,10 @@ export default function StudyTopic({
 		setError("");
 	};
 
-	if (loading || topicLoading) {
+	if (
+		loading ||
+		topicLoading
+	) {
 		return (
 			<main className="flex min-h-screen items-center justify-center bg-background">
 				<div className="flex flex-col items-center gap-3">
@@ -567,9 +995,14 @@ export default function StudyTopic({
 								<button
 									type="button"
 									onClick={() =>
-										setShowAddMaterial(true)
+										setShowAddMaterial(
+											true,
+										)
 									}
-									className="shrink-0 rounded-xl bg-primary px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
+									disabled={
+										addingMaterial
+									}
+									className="shrink-0 rounded-xl bg-primary px-5 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									Add Material
 								</button>
@@ -583,7 +1016,8 @@ export default function StudyTopic({
 										Loading materials...
 									</p>
 								</div>
-							) : materials.length === 0 ? (
+							) : materials.length ===
+							  0 ? (
 								<div className="mt-5 rounded-2xl border border-border bg-surface px-6 py-10 text-center">
 									<p className="text-sm text-muted">
 										No materials added yet.
@@ -592,64 +1026,119 @@ export default function StudyTopic({
 							) : (
 								<div className="mt-5 space-y-3">
 									{materials.map(
-										(material) => (
-											<div
-												key={
+										(material) => {
+											const status =
+												materialStatuses[
 													material.id
-												}
-												className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-surface p-5"
-											>
-												<div className="min-w-0">
-													<h3 className="truncate text-sm font-medium text-primary">
-														{
-															material.name
-														}
-													</h3>
+												];
 
-													<p className="mt-1 text-xs uppercase tracking-wide text-muted">
-														PDF
-														{material.size
-															? ` • ${formatFileSize(
-																	material.size
-																)}`
-															: ""}
-													</p>
-												</div>
+											const isPreparing =
+												status ===
+												"preparing";
 
-												<div className="flex items-center gap-2">
+											const hasSavedResources =
+												Boolean(
+													material.studyGuide &&
+														material.flashcards &&
+														material.practiceTest,
+												);
+
+											return (
+												<div
+													key={
+														material.id
+													}
+													className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-surface p-5"
+												>
 													<button
 														type="button"
 														onClick={() =>
-															handleOpenMaterial(
-																material
-															)
-														}
-														className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-elevated"
-													>
-														Open PDF
-													</button>
-
-													<button
-														type="button"
-														onClick={() =>
-															handleDeleteMaterial(
-																material.id
+															openMaterialStudyPage(
+																material.id,
 															)
 														}
 														disabled={
-															deletingMaterialId ===
-															material.id
+															isPreparing
 														}
-														className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+														className="min-w-0 flex-1 text-left disabled:cursor-not-allowed"
 													>
-														{deletingMaterialId ===
-														material.id
-															? "Deleting..."
-															: "Delete"}
+														<h3 className="truncate text-sm font-medium text-primary">
+															{
+																material.name
+															}
+														</h3>
+
+														<p className="mt-1 text-xs uppercase tracking-wide text-muted">
+															PDF
+															{material.size
+																? ` • ${formatFileSize(
+																		material.size,
+																	)}`
+																: ""}
+														</p>
+
+														{isPreparing && (
+															<div className="mt-3 flex items-center gap-2">
+																<div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-soft border-t-primary" />
+
+																<span className="text-xs font-medium text-muted">
+																	Preparing study materials...
+																</span>
+															</div>
+														)}
+
+														{status ===
+															"error" && (
+															<p className="mt-3 text-xs font-medium text-red-600">
+																Preparation failed. Check the message above.
+															</p>
+														)}
+
+														{!isPreparing &&
+															status !==
+																"error" &&
+															hasSavedResources && (
+																<p className="mt-3 text-xs font-medium text-primary">
+																	Ready to study
+																</p>
+															)}
 													</button>
+
+													<div className="flex shrink-0 items-center gap-2">
+														<button
+															type="button"
+															onClick={() =>
+																handleOpenMaterial(
+																	material,
+																)
+															}
+															className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-elevated"
+														>
+															Open PDF
+														</button>
+
+														<button
+															type="button"
+															onClick={() =>
+																handleDeleteMaterial(
+																	material.id,
+																)
+															}
+															disabled={
+																deletingMaterialId ===
+																material.id
+															}
+															className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+														>
+															{deletingMaterialId ===
+															material.id
+																? "Deleting..."
+																: "Delete"}
+														</button>
+													</div>
 												</div>
-											</div>
-										)
+											);
+										},
 									)}
 								</div>
 							)}
@@ -668,16 +1157,6 @@ export default function StudyTopic({
 
 									<p className="mt-2 text-sm leading-6 text-muted">
 										Turn your materials into a structured guide for learning.
-									</p>
-								</div>
-
-								<div className="rounded-2xl border border-border bg-surface p-6">
-									<h3 className="text-base font-semibold text-primary">
-										Smart Study
-									</h3>
-
-									<p className="mt-2 text-sm leading-6 text-muted">
-										Study through adaptive questions based on what you know.
 									</p>
 								</div>
 
@@ -716,7 +1195,8 @@ export default function StudyTopic({
 								</h2>
 
 								<p className="mt-1 text-sm leading-6 text-muted">
-									Add a PDF to {topic.name}.
+									Add a PDF to{" "}
+									{topic.name}.
 								</p>
 							</div>
 
@@ -771,7 +1251,7 @@ export default function StudyTopic({
 
 									<p className="mt-1 text-xs text-muted">
 										{formatFileSize(
-											selectedFile.size
+											selectedFile.size,
 										)}
 									</p>
 								</div>
@@ -791,10 +1271,10 @@ export default function StudyTopic({
 									materialName
 								}
 								onChange={(
-									event
+									event,
 								) =>
 									setMaterialName(
-										event.target.value
+										event.target.value,
 									)
 								}
 								placeholder="e.g. Cell Biology"
@@ -805,8 +1285,26 @@ export default function StudyTopic({
 							/>
 
 							<p className="mt-3 text-xs leading-5 text-muted">
-								The PDF will be uploaded to your study library.
+								After the PDF is uploaded, Wasl will automatically prepare your Study Guide, Flashcards, and Practice Test.
 							</p>
+
+							{addingMaterial && (
+								<div className="mt-5 rounded-xl border border-border bg-elevated px-4 py-4">
+									<div className="flex items-center gap-3">
+										<div className="h-5 w-5 animate-spin rounded-full border-2 border-soft border-t-primary" />
+
+										<div>
+											<p className="text-sm font-medium text-primary">
+												Uploading material...
+											</p>
+
+											<p className="mt-1 text-xs leading-5 text-muted">
+												Your PDF is being uploaded.
+											</p>
+										</div>
+									</div>
+								</div>
+							)}
 
 							<div className="mt-6 flex justify-end gap-3">
 								<button
@@ -830,7 +1328,7 @@ export default function StudyTopic({
 									className="rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									{addingMaterial
-										? "Adding..."
+										? "Uploading..."
 										: "Add Material"}
 								</button>
 							</div>
