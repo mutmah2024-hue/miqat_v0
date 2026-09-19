@@ -605,7 +605,7 @@ export default function Dashboard() {
 			<main className="flex min-h-screen items-center justify-center bg-background px-6">
 				<div className="text-center">
 					<p className="text-sm text-muted">
-						You need to sign in to access Wasl.
+						You need to sign in to access Mīqāt.
 					</p>
 
 					<a

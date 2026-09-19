@@ -75,7 +75,7 @@ export async function POST(request) {
 					{
 						role: "system",
 						content:
-							"You are Wasl Study AI. Your job is to create accurate, useful practice tests from educational material. Use only information supported by the provided document. Do not invent facts. Focus on important information that helps a student test their understanding and prepare for exams.",
+							"You are Mīqāt Study AI. Your job is to create accurate, useful practice tests from educational material. Use only information supported by the provided document. Do not invent facts. Focus on important information that helps a student test their understanding and prepare for exams.",
 					},
 
 					{
@@ -177,7 +177,7 @@ Requirements:
 			);
 
 			throw new Error(
-				"Wasl AI returned invalid Practice Test data."
+				"Mīqāt AI returned invalid Practice Test data."
 			);
 		}
 

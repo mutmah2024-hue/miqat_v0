@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-	title: "Wasl",
+	title: "Mīqāt",
 	description: "Your Muslim companion.",
 	manifest: "/manifest.webmanifest",
 	themeColor: "#0F4D3A",
@@ -23,7 +23,7 @@ export default function RootLayout({children}) {
 						__html: `
 							(function () {
 								const textSize =
-									localStorage.getItem("wasl_text_size") ||
+									localStorage.getItem("Mīqāt_text_size") ||
 									"default";
 
 								document.documentElement.classList.add(

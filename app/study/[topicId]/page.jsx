@@ -897,7 +897,7 @@ export default function StudyTopic({
 			<main className="flex min-h-screen items-center justify-center bg-background px-6">
 				<div className="text-center">
 					<p className="text-sm text-muted">
-						You need to sign in to access Wasl.
+						You need to sign in to access Mīqāt.
 					</p>
 
 					<a
@@ -988,7 +988,7 @@ export default function StudyTopic({
 									</h2>
 
 									<p className="mt-2 text-sm text-muted">
-										Add the materials you want Wasl to use for studying.
+										Add the materials you want Mīqāt to use for studying.
 									</p>
 								</div>
 
@@ -1285,7 +1285,7 @@ export default function StudyTopic({
 							/>
 
 							<p className="mt-3 text-xs leading-5 text-muted">
-								After the PDF is uploaded, Wasl will automatically prepare your Study Guide, Flashcards, and Practice Test.
+								After the PDF is uploaded, Mīqāt will automatically prepare your Study Guide, Flashcards, and Practice Test.
 							</p>
 
 							{addingMaterial && (

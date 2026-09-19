@@ -64,7 +64,7 @@ export default function Signinup() {
           displayName: name.trim(),
         });
 
-        console.log("Wasl account created successfully.");
+        console.log("Mīqāt account created successfully.");
 
         router.push("/dashboard");
       } else {
@@ -146,7 +146,7 @@ export default function Signinup() {
               href="/"
               className="text-sm font-medium tracking-[0.35em] text-white"
             >
-              Wasl
+              Mīqāt
             </a>
 
             {/* Main message */}
@@ -187,7 +187,7 @@ export default function Signinup() {
                 href="/"
                 className="text-sm font-medium tracking-[0.35em] text-primary"
               >
-                Wasl
+                Mīqāt
               </a>
 
             </div>
@@ -203,8 +203,8 @@ export default function Signinup() {
 
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-primary sm:text-4xl">
                 {mode === "signup"
-                  ? "Create your Wasl account."
-                  : "Welcome back to Wasl."}
+                  ? "Create your Mīqāt account."
+                  : "Welcome back to Mīqāt."}
               </h2>
 
               <p className="mt-4 text-sm leading-7 text-muted">
@@ -517,7 +517,7 @@ export default function Signinup() {
             {/* Terms */}
             {mode === "signup" && (
               <p className="mt-5 text-center text-xs leading-5 text-muted">
-                By creating an account, you agree to Wasl's terms and
+                By creating an account, you agree to Mīqāt's terms and
                 privacy policy.
               </p>
             )}
@@ -529,7 +529,7 @@ export default function Signinup() {
                 href="/"
                 className="text-xs text-muted transition-colors hover:text-primary"
               >
-                ← Back to Wasl
+                ← Back to Mīqāt
               </a>
 
             </div>

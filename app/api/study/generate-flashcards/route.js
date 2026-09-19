@@ -98,7 +98,7 @@ export async function POST(request) {
 				{
 					role: "system",
 					content:
-						"You are Wasl Study AI. Your job is to create accurate, useful flashcards from educational material. Use only information supported by the provided document. Do not invent facts. Focus on information that is important for understanding and exam preparation.",
+						"You are Mīqāt Study AI. Your job is to create accurate, useful flashcards from educational material. Use only information supported by the provided document. Do not invent facts. Focus on information that is important for understanding and exam preparation.",
 				},
 
 				{
@@ -207,7 +207,7 @@ Requirements:
 			);
 
 			throw new Error(
-				"Wasl AI returned invalid Flashcards data."
+				"Mīqāt AI returned invalid Flashcards data."
 			);
 		}
 
@@ -216,7 +216,7 @@ Requirements:
 			!Array.isArray(flashcards.flashcards)
 		) {
 			throw new Error(
-				"Wasl AI returned Flashcards in an unexpected format."
+				"Mīqāt AI returned Flashcards in an unexpected format."
 			);
 		}
 

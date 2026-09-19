@@ -75,7 +75,7 @@ export async function POST(request) {
 					{
 						role: "system",
 						content:
-							"You are Wasl Study AI. Your job is to transform educational material into clear, accurate, student-friendly study content. Use only information supported by the provided document. Do not invent facts. Explain difficult ideas simply while preserving important technical details.",
+							"You are Mīqāt Study AI. Your job is to transform educational material into clear, accurate, student-friendly study content. Use only information supported by the provided document. Do not invent facts. Explain difficult ideas simply while preserving important technical details.",
 					},
 
 					{
@@ -166,7 +166,7 @@ Requirements:
 			);
 
 			throw new Error(
-				"Wasl AI returned invalid Study Guide data."
+				"Mīqāt AI returned invalid Study Guide data."
 			);
 		}
 

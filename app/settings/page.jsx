@@ -42,7 +42,7 @@ export default function Settings() {
 
 	useEffect(() => {
 		const savedTextSize =
-			localStorage.getItem("wasl_text_size");
+			localStorage.getItem("Mīqāt_text_size");
 
 		if (
 			savedTextSize === "small" ||
@@ -57,7 +57,7 @@ const handleTextSizeChange = (size) => {
 	setTextSize(size);
 
 	localStorage.setItem(
-		"wasl_text_size",
+		"Mīqāt_text_size",
 		size
 	);
 
@@ -129,7 +129,7 @@ const handleTextSizeChange = (size) => {
 							</h1>
 
 							<p className="mt-2 text-sm text-muted">
-								Customize your Wasl experience.
+								Customize your Mīqāt experience.
 							</p>
 						</div>
 
@@ -151,7 +151,7 @@ const handleTextSizeChange = (size) => {
 										</p>
 
 										<p className="mt-1 text-xs text-muted">
-											Change the mood of Wasl.
+											Change the mood of Mīqāt.
 										</p>
 									</div>
 
@@ -167,7 +167,7 @@ const handleTextSizeChange = (size) => {
 										</p>
 
 										<p className="mt-1 text-xs text-muted">
-											Adjust the size of text across Wasl.
+											Adjust the size of text across Mīqāt.
 										</p>
 									</div>
 
@@ -255,7 +255,7 @@ const handleTextSizeChange = (size) => {
 										</p>
 
 										<p className="mt-1 text-xs text-muted">
-											Sign out of your Wasl account.
+											Sign out of your Mīqāt account.
 										</p>
 									</div>
 
@@ -278,7 +278,7 @@ const handleTextSizeChange = (size) => {
 								<div className="flex items-center justify-between px-5 py-5">
 									<div>
 										<p className="text-sm font-medium text-primary">
-											Wasl
+											Mīqāt
 										</p>
 
 										<p className="mt-1 text-xs text-muted">
@@ -295,7 +295,7 @@ const handleTextSizeChange = (size) => {
 
 								<div className="px-5 py-5">
 									<p className="text-sm leading-6 text-muted">
-										Wasl is designed to help you stay connected
+										Mīqāt is designed to help you stay connected
 										to your worship, reflection, focus, and
 										daily life.
 									</p>
