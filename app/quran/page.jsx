@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {onAuthStateChanged} from "firebase/auth";
 
 import Sidebar from "../components/Sidebar";
@@ -34,40 +34,49 @@ export default function Quran() {
 
 	const [savingGoal, setSavingGoal] = useState(false);
 
-
-	/*
-	 * Authentication
-	 */
-
-	useEffect(() => {
-		const unsubscribe = onAuthStateChanged(
-			auth,
-			(currentUser) => {
-				setUser(currentUser);
-			}
-		);
-
-		return () => unsubscribe();
-	}, []);
-
-
 	/*
 	 * Load Qur'an dashboard
 	 */
 
-	useEffect(() => {
-		if (!user) return;
+	const loadQuranDashboard = useCallback(
+		async (currentUser) => {
+			if (!currentUser) {
+				setLoading(false);
+				return;
+			}
 
-		async function loadQuranDashboard() {
 			try {
+				setLoading(true);
+				setError("");
+
+				const dataPromise = Promise.all([
+					getQuranSurahs(),
+					getQuranSettings(currentUser.uid),
+					getTodayQuranProgress(
+						currentUser.uid
+					),
+				]);
+
+				const timeoutPromise =
+					new Promise(
+						(_, reject) => {
+							setTimeout(() => {
+								reject(
+									new Error(
+										"The Qur'an is taking too long to load. Please check your connection and try again."
+									)
+								);
+							}, 10000);
+						}
+					);
+
 				const [
 					surahData,
 					settings,
 					progress,
-				] = await Promise.all([
-					getQuranSurahs(),
-					getQuranSettings(user.uid),
-					getTodayQuranProgress(user.uid),
+				] = await Promise.race([
+					dataPromise,
+					timeoutPromise,
 				]);
 
 				setSurahs(surahData);
@@ -90,16 +99,55 @@ export default function Quran() {
 				);
 
 				setError(
-					"Unable to load Qur'an."
+					error.message ||
+						"Unable to load Qur'an. Please try again."
 				);
 			} finally {
 				setLoading(false);
 			}
+		},
+		[]
+	);
+
+	/*
+	 * Authentication
+	 */
+
+	useEffect(() => {
+		const unsubscribe =
+			onAuthStateChanged(
+				auth,
+				(currentUser) => {
+					setUser(currentUser);
+
+					if (!currentUser) {
+						setLoading(false);
+					}
+				}
+			);
+
+		return () => unsubscribe();
+	}, []);
+
+	/*
+	 * Load Qur'an data after authentication
+	 */
+
+	useEffect(() => {
+		if (!user) {
+			return;
 		}
 
-		loadQuranDashboard();
-	}, [user]);
+		loadQuranDashboard(user);
+	}, [user, loadQuranDashboard]);
 
+	/*
+	 * Retry
+	 */
+
+	const handleRetry = () => {
+		loadQuranDashboard(user);
+	};
 
 	/*
 	 * Search Surahs
@@ -130,7 +178,6 @@ export default function Quran() {
 		}
 	);
 
-
 	/*
 	 * Open Qur'an page
 	 */
@@ -150,7 +197,6 @@ export default function Quran() {
 			`/quran/reader?page=${page}`;
 	};
 
-
 	/*
 	 * Open Surah
 	 */
@@ -159,7 +205,6 @@ export default function Quran() {
 		window.location.href =
 			`/quran/reader?surah=${surahNumber}`;
 	};
-
 
 	/*
 	 * Continue reading
@@ -170,13 +215,14 @@ export default function Quran() {
 			`/quran/reader?page=${lastPage}`;
 	};
 
-
 	/*
 	 * Save daily goal
 	 */
 
 	const handleGoalChange = async (goal) => {
-		if (!user || savingGoal) return;
+		if (!user || savingGoal) {
+			return;
+		}
 
 		try {
 			setSavingGoal(true);
@@ -202,7 +248,6 @@ export default function Quran() {
 		}
 	};
 
-
 	/*
 	 * Custom daily goal
 	 */
@@ -221,7 +266,6 @@ export default function Quran() {
 		handleGoalChange(goal);
 	};
 
-
 	/*
 	 * Daily progress
 	 */
@@ -234,7 +278,6 @@ export default function Quran() {
 				)
 			: 0;
 
-
 	/*
 	 * Loading
 	 */
@@ -242,21 +285,16 @@ export default function Quran() {
 	if (loading) {
 		return (
 			<main className="flex min-h-screen items-center justify-center bg-background">
-
 				<div className="flex flex-col items-center gap-3">
-
 					<div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
 
 					<p className="text-sm text-muted">
 						Loading...
 					</p>
-
 				</div>
-
 			</main>
 		);
 	}
-
 
 	/*
 	 * Error
@@ -265,19 +303,22 @@ export default function Quran() {
 	if (error) {
 		return (
 			<main className="flex min-h-screen items-center justify-center bg-background px-6">
-
-				<div className="text-center">
-
-					<p className="text-sm text-muted">
+				<div className="max-w-sm text-center">
+					<p className="text-sm leading-6 text-muted">
 						{error}
 					</p>
 
+					<button
+						type="button"
+						onClick={handleRetry}
+						className="mt-5 inline-flex rounded-xl bg-primary px-6 py-3 text-sm font-medium text-white transition-opacity hover:opacity-80"
+					>
+						Try again
+					</button>
 				</div>
-
 			</main>
 		);
 	}
-
 
 	/*
 	 * Not signed in
@@ -286,9 +327,7 @@ export default function Quran() {
 	if (!user) {
 		return (
 			<main className="flex min-h-screen items-center justify-center bg-background px-6">
-
 				<div className="text-center">
-
 					<p className="text-sm text-muted">
 						You need to sign in to read the Qur'an.
 					</p>
@@ -299,30 +338,22 @@ export default function Quran() {
 					>
 						Sign in
 					</a>
-
 				</div>
-
 			</main>
 		);
 	}
 
-
 	return (
 		<main className="min-h-screen bg-background text-foreground">
-
 			<div className="flex min-h-screen">
-
 				<Sidebar />
 
 				<div className="min-w-0 flex-1">
 
-
 					{/* Header */}
 
 					<header className="border-b border-border">
-
 						<div className="mx-auto max-w-5xl px-6 py-7 sm:px-8">
-
 							<p className="text-xs tracking-[0.2em] text-muted">
 								QUR'AN
 							</p>
@@ -334,14 +365,10 @@ export default function Quran() {
 							<p className="mt-2 text-sm text-muted">
 								Continue your reading or find a place in the Qur'an.
 							</p>
-
 						</div>
-
 					</header>
 
-
 					<div className="mx-auto max-w-5xl px-6 py-10 pb-24 sm:px-8 lg:py-14">
-
 
 						{/* Continue Reading */}
 
@@ -375,7 +402,6 @@ export default function Quran() {
 
 						</section>
 
-
 						{/* Daily Goal */}
 
 						<section className="mt-8 rounded-3xl border border-border bg-card p-7 sm:p-8">
@@ -400,7 +426,6 @@ export default function Quran() {
 
 							</div>
 
-
 							{/* Progress Bar */}
 
 							<div className="mt-6 h-2 overflow-hidden rounded-full bg-muted/20">
@@ -413,7 +438,6 @@ export default function Quran() {
 								/>
 
 							</div>
-
 
 							{/* Goal Choices */}
 
@@ -445,7 +469,6 @@ export default function Quran() {
 									)
 								)}
 
-
 								<button
 									type="button"
 									onClick={() =>
@@ -463,7 +486,6 @@ export default function Quran() {
 								</button>
 
 							</div>
-
 
 							{/* Custom Goal */}
 
@@ -507,7 +529,6 @@ export default function Quran() {
 
 						</section>
 
-
 						{/* Find Your Place */}
 
 						<section className="mt-10">
@@ -516,9 +537,7 @@ export default function Quran() {
 								FIND YOUR PLACE
 							</p>
 
-
 							<div className="mt-4 grid gap-4 sm:grid-cols-2">
-
 
 								{/* Search Surah */}
 
@@ -545,7 +564,6 @@ export default function Quran() {
 									/>
 
 								</div>
-
 
 								{/* Go To Page */}
 
@@ -598,7 +616,6 @@ export default function Quran() {
 
 						</section>
 
-
 						{/* Surah List */}
 
 						<section className="mt-10">
@@ -622,7 +639,6 @@ export default function Quran() {
 								</p>
 
 							</div>
-
 
 							<div className="mt-5 divide-y divide-border border-y border-border">
 
@@ -648,7 +664,6 @@ export default function Quran() {
 												)}
 											</span>
 
-
 											<span className="min-w-0 flex-1">
 
 												<span className="block text-sm font-medium">
@@ -664,7 +679,6 @@ export default function Quran() {
 
 											</span>
 
-
 											<span
 												dir="rtl"
 												className="text-xl text-foreground"
@@ -675,7 +689,6 @@ export default function Quran() {
 										</button>
 									)
 								)}
-
 
 								{filteredSurahs.length === 0 && (
 									<div className="px-4 py-10 text-center">
@@ -696,7 +709,7 @@ export default function Quran() {
 				</div>
 
 			</div>
-
 		</main>
 	);
 }
+

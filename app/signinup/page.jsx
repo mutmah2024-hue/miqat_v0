@@ -66,7 +66,7 @@ export default function Signinup() {
 
         console.log("Mīqāt account created successfully.");
 
-        router.push("/dashboard");
+        router.push("../dashboard");
       } else {
         if (!email.trim()) {
           throw new Error("Please enter your email address.");
@@ -153,7 +153,7 @@ export default function Signinup() {
             <div className="max-w-lg">
 
               <p className="text-sm font-medium uppercase tracking-[0.25em] text-primary-light">
-                Prayer · Qur'an · Focus · Reflection
+                Prayer · Qur'an · <span className="font-extrabold">Study</span> · Focus · Reflection
               </p>
 
               <h1 className="mt-6 text-5xl font-semibold leading-[1.08] tracking-tight text-white xl:text-6xl">

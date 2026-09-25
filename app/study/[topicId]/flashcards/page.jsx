@@ -181,6 +181,7 @@ export default function FlashcardsPage({
 
 					<p className="text-sm text-muted">
 						Loading...
+
 					</p>
 				</div>
 			</main>
@@ -212,7 +213,7 @@ export default function FlashcardsPage({
 				<Sidebar user={user} />
 
 				<div className="min-w-0 flex-1">
-					<div className="mx-auto w-full min-w-0 max-w-4xl px-4 py-10 sm:px-6 lg:px-10 lg:py-14">
+					<div className="mx-auto w-full min-w-0 max-w-4xl px-4 pb-28 pt-10 sm:px-6 lg:px-10 lg:py-14">
 
 						<div className="flex items-start justify-between gap-6">
 							<div className="min-w-0">

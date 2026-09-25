@@ -108,7 +108,7 @@ export default function DuasPage() {
 				<Sidebar user={user} />
 
 				<div className="min-w-0 flex-1">
-					<div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-10 sm:px-6 lg:px-10 lg:py-14">
+					<div className="mx-auto w-full min-w-0 max-w-6xl px-4 pb-28 pt-10 sm:px-6 lg:px-10 lg:py-14">
 						<div className="flex items-start justify-between gap-6">
 							<div className="min-w-0">
 								<p className="text-xs font-medium uppercase tracking-[0.2em] text-muted">
@@ -130,14 +130,14 @@ export default function DuasPage() {
 						</div>
 
 						<section className="mt-10">
-							<div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+							<div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-3">
 								{duaCollections.map(
 									(collection) => (
 										<article
 											key={
 												collection.id
 											}
-											className="group flex min-w-0 flex-col rounded-3xl border border-border bg-surface p-6 transition-colors hover:bg-elevated"
+											className="group flex min-w-0 flex-col rounded-2xl border border-border bg-surface p-4 transition-colors hover:bg-elevated sm:rounded-3xl sm:p-6"
 										>
 											<div className="flex min-h-[180px] flex-1 flex-col">
 												<div className="flex items-start justify-between gap-4">
@@ -150,7 +150,7 @@ export default function DuasPage() {
 													</span>
 												</div>
 
-												<h2 className="mt-7 break-words text-xl font-semibold text-primary">
+												<h2 className="mt-5 break-words text-base font-semibold text-primary sm:text-xl">
 													{
 														collection.title
 													}
@@ -165,7 +165,7 @@ export default function DuasPage() {
 
 											<a
 												href={`/duas/${collection.id}`}
-												className="mt-7 inline-flex items-center justify-between border-t border-border pt-4 text-sm font-medium text-primary transition-opacity group-hover:opacity-70"
+												className="mt-5 inline-flex items-center justify-between border-t border-border pt-3 text-xs font-medium text-primary transition-opacity group-hover:opacity-70 sm:text-sm"
 											>
 												<span>
 													Read more

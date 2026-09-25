@@ -58,18 +58,18 @@ export default function Home() {
 
 			{/* Hero */}
 			<section className="relative">
-				<div
+				{/* <div
 					className="pointer-events-none absolute -left-32 top-16 select-none font-serif text-[24rem] leading-none text-primary opacity-[0.025]"
 					aria-hidden="true"
 				>
 					و
-				</div>
+				</div> */}
 
 				<div
-					className="pointer-events-none absolute -bottom-40 right-[-8rem] select-none font-serif text-[28rem] leading-none text-primary opacity-[0.025]"
+					className="pointer-events-none absolute text-center select-none font-serif text-[28rem] leading-none text-primary opacity-[0.025]"
 					aria-hidden="true"
 				>
-					ق
+					ميقات 
 				</div>
 
 				<div className="mx-auto grid max-w-7xl items-center gap-16 px-6 py-20 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-28">
@@ -120,7 +120,7 @@ export default function Home() {
 										</p>
 
 										<h2 className="mt-1 text-lg font-medium">
-											Good morning.
+											Assalāmu alaykum.
 										</h2>
 									</div>
 
@@ -341,15 +341,7 @@ export default function Home() {
 									/>
 								</div>
 
-								<div className="mt-3 rounded-xl border border-border bg-surface px-4 py-3">
-									<p className="text-xs text-muted">
-										Smart Study
-									</p>
-
-									<p className="mt-1 text-sm text-primary">
-										Adaptive questions based on what you know.
-									</p>
-								</div>
+								
 							</div>
 						</div>
 					</div>

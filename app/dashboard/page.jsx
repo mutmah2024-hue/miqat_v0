@@ -633,7 +633,7 @@ export default function Dashboard() {
 				<Sidebar user={user} />
 		{/* <ThemeToggle/> */}
 				<div className="min-w-0 flex-1">
-					<div className="mx-auto max-w-7xl px-6 py-10 lg:px-10 lg:py-14">
+					<div className="mx-auto max-w-7xl px-6 pb-28 pt-10 lg:px-10 lg:py-14">
 						{/* Greeting */}
 
 						<section>

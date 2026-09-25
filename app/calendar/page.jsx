@@ -560,7 +560,7 @@ export default function Calendar() {
 
 
 				<div className="min-w-0 flex-1">
-					<div className="mx-auto max-w-5xl px-6 py-10 sm:px-8 lg:py-14">
+					<div className="mx-auto max-w-5xl px-6 pb-28 pt-10 sm:px-8 lg:py-14">
 						{/* Header */}
 
 						<section>
